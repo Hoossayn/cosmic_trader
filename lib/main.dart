@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/theme/app_theme.dart';
 import 'navigation/app_router.dart';
-import 'core/network/market_api_test.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,12 +21,6 @@ void main() async {
   // Lock orientation to portrait
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Test API integration in debug mode
-  try {
-    await MarketApiTest.testMarketApi();
-  } catch (e) {
-    debugPrint('API test failed but continuing app startup: $e');
-  }
 
   runApp(const ProviderScope(child: CosmicTraderApp()));
 }
