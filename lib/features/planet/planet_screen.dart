@@ -113,6 +113,7 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
       padding: const EdgeInsets.all(20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Level and XP info
           Column(
@@ -208,7 +209,7 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
               IconButton(
                 onPressed: () {
                   //Vibration.vibrate(duration: 50);
-                  // TODO: Show settings
+                  context.push('/settings');
                 },
                 icon: const Icon(
                   Icons.settings_outlined,

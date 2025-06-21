@@ -24,8 +24,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildUserStats(),
               const SizedBox(height: 24),
               _buildAchievements(),
-              const SizedBox(height: 24),
-              _buildSettings(),
             ],
           ),
         ),
@@ -297,78 +295,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ).animate().slideY(
       begin: 0.5,
       duration: const Duration(milliseconds: 800),
-      curve: Curves.easeOut,
-    );
-  }
-
-  Widget _buildSettings() {
-    final settingsItems = [
-      {
-        'title': 'Notifications',
-        'icon': Icons.notifications,
-        'hasToggle': true,
-      },
-      {'title': 'Account Settings', 'icon': Icons.settings, 'hasToggle': false},
-      {
-        'title': 'Privacy Policy',
-        'icon': Icons.privacy_tip,
-        'hasToggle': false,
-      },
-      {'title': 'Help & Support', 'icon': Icons.help, 'hasToggle': false},
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.spaceDeep,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Settings', style: AppTheme.heading3),
-          const SizedBox(height: 16),
-
-          ...settingsItems.map((item) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cosmicBlue.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    item['icon'] as IconData,
-                    color: AppTheme.cosmicBlue,
-                    size: 20,
-                  ),
-                ),
-                title: Text(
-                  item['title'] as String,
-                  style: AppTheme.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                trailing: item['hasToggle'] as bool
-                    ? Switch(
-                        value: true,
-                        onChanged: (value) {},
-                        activeColor: AppTheme.energyGreen,
-                      )
-                    : const Icon(Icons.chevron_right, color: AppTheme.gray400),
-                onTap: () {},
-              ),
-            );
-          }).toList(),
-        ],
-      ),
-    ).animate().slideY(
-      begin: 0.5,
-      duration: const Duration(milliseconds: 1000),
       curve: Curves.easeOut,
     );
   }

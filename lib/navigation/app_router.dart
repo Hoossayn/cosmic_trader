@@ -6,6 +6,7 @@ import '../features/trading/trading_screen.dart';
 import '../features/trading/open_trades_screen.dart';
 import '../features/leaderboard/leaderboard_screen.dart';
 import '../features/profile/profile_screen.dart';
+import '../features/profile/settings_screen.dart';
 import '../shared/widgets/main_navigation.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -50,6 +51,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/open-trades',
         builder: (context, state) => const OpenTradesScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        builder: (context, state) => const SettingsScreen(),
       ),
     ],
   );
