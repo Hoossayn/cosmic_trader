@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:math' as math;
 import '../../core/theme/app_theme.dart';
+import '../models/nft_model.dart';
 
 class PlanetWidget extends StatefulWidget {
   final double size;
   final int healthLevel; // 0-100
   final bool showOrbitalElements;
+  final List<NFT>? ownedNFTs;
 
   const PlanetWidget({
     super.key,
     required this.size,
     required this.healthLevel,
     this.showOrbitalElements = true,
+    this.ownedNFTs,
   });
 
   @override
@@ -78,6 +81,9 @@ class _PlanetWidgetState extends State<PlanetWidget>
 
           // Orbital elements
           if (widget.showOrbitalElements) ..._buildOrbitalElements(),
+
+          // NFT decorations
+          if (widget.ownedNFTs != null) ..._buildNFTDecorations(),
 
           // Main planet
           Container(
@@ -287,6 +293,195 @@ class _PlanetWidgetState extends State<PlanetWidget>
     }
 
     return features;
+  }
+
+  List<Widget> _buildNFTDecorations() {
+    if (widget.ownedNFTs == null || widget.ownedNFTs!.isEmpty) {
+      return [];
+    }
+
+    final decorations = <Widget>[];
+    final ownedNFTs = widget.ownedNFTs!;
+
+    // Add decoration NFTs
+    final decorationNFTs = ownedNFTs
+        .where((nft) => nft.category == NFTCategory.decoration && nft.isOwned)
+        .toList();
+
+    for (int i = 0; i < decorationNFTs.length && i < 3; i++) {
+      final nft = decorationNFTs[i];
+      final angle = (i * 2 * math.pi / 3) + (_orbitController.value * 0.5);
+      final radius = widget.size * 0.4;
+      final x = math.cos(angle) * radius;
+      final y = math.sin(angle) * radius;
+
+      decorations.add(
+        AnimatedBuilder(
+          animation: _orbitController,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(x, y),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.spaceDeep.withOpacity(0.8),
+                  border: Border.all(
+                    color: _getNFTGlowColor(nft.rarity),
+                    width: 2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _getNFTGlowColor(nft.rarity).withOpacity(0.6),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(nft.emoji, style: const TextStyle(fontSize: 16)),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // Add companion NFTs
+    final companionNFTs = ownedNFTs
+        .where((nft) => nft.category == NFTCategory.companion && nft.isOwned)
+        .toList();
+
+    for (int i = 0; i < companionNFTs.length && i < 2; i++) {
+      final nft = companionNFTs[i];
+      final angle = (i * math.pi) + (_orbitController.value * 2 * math.pi);
+      final radius = widget.size * 0.5 + 20;
+      final x = math.cos(angle) * radius;
+      final y = math.sin(angle) * radius;
+
+      decorations.add(
+        AnimatedBuilder(
+          animation: _orbitController,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(x, y),
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.spaceDeep.withOpacity(0.9),
+                  border: Border.all(
+                    color: _getNFTGlowColor(nft.rarity),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _getNFTGlowColor(nft.rarity).withOpacity(0.4),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(nft.emoji, style: const TextStyle(fontSize: 14)),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    // Add effect NFTs as background effects
+    final effectNFTs = ownedNFTs
+        .where((nft) => nft.category == NFTCategory.effect && nft.isOwned)
+        .toList();
+
+    for (final nft in effectNFTs) {
+      if (nft.id == 'aurora_effect') {
+        decorations.add(
+          AnimatedBuilder(
+            animation: _pulseController,
+            builder: (context, child) {
+              return Container(
+                width: widget.size + 40,
+                height: widget.size + 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.transparent,
+                      AppTheme.energyGreen.withOpacity(
+                        0.1 * _pulseController.value,
+                      ),
+                      AppTheme.cosmicBlue.withOpacity(
+                        0.1 * _pulseController.value,
+                      ),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      } else if (nft.id == 'stardust_trail') {
+        // Add sparkling stardust effect
+        for (int i = 0; i < 8; i++) {
+          final angle =
+              (i * math.pi / 4) + (_orbitController.value * 2 * math.pi);
+          final radius = widget.size * 0.6;
+          final x = math.cos(angle) * radius;
+          final y = math.sin(angle) * radius;
+
+          decorations.add(
+            AnimatedBuilder(
+              animation: _orbitController,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(x, y),
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.starYellow.withOpacity(0.8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.starYellow.withOpacity(0.6),
+                          blurRadius: 4,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        }
+      }
+    }
+
+    return decorations;
+  }
+
+  Color _getNFTGlowColor(NFTRarity rarity) {
+    switch (rarity) {
+      case NFTRarity.common:
+        return AppTheme.gray400;
+      case NFTRarity.rare:
+        return AppTheme.energyGreen;
+      case NFTRarity.epic:
+        return AppTheme.cosmicBlue;
+      case NFTRarity.legendary:
+        return AppTheme.starYellow;
+      case NFTRarity.mythic:
+        return AppTheme.warningOrange;
+    }
   }
 
   Color _getHealthColor() {

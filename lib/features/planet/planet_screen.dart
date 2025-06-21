@@ -7,6 +7,7 @@ import '../../shared/widgets/xp_progress_bar.dart';
 import '../../shared/widgets/planet_widget.dart';
 import '../../shared/providers/api_providers.dart';
 import '../../shared/models/market_models.dart';
+import '../../shared/models/nft_model.dart';
 import '../../shared/utils/market_utils.dart';
 
 class PlanetScreen extends ConsumerStatefulWidget {
@@ -91,10 +92,13 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
                     _buildHeader(),
 
                     // Main planet view
+                    SizedBox(
+                      height: 50,
+                    ),
                     _buildPlanetView(),
 
                     // Market overview section
-                    _buildMarketOverview(marketsAsync),
+                   // _buildMarketOverview(marketsAsync),
 
                     // Bottom stats and quick actions
                     _buildBottomSection(),
@@ -239,7 +243,11 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
                 builder: (context, child) {
                   return Transform.rotate(
                     angle: _rotationController.value * 2 * 3.14159,
-                    child: const PlanetWidget(size: 280, healthLevel: 96),
+                    child: PlanetWidget(
+                      size: 280,
+                      healthLevel: 92,
+                      ownedNFTs: NFTData.getOwnedNFTs(),
+                    ),
                   );
                 },
               ),
