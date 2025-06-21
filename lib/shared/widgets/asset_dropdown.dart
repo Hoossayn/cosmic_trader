@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../core/theme/app_theme.dart';
 import '../models/market_models.dart';
 import '../providers/api_providers.dart';
@@ -14,6 +16,80 @@ class AssetDropdown extends ConsumerWidget {
     required this.selectedAsset,
     required this.onAssetSelected,
   });
+
+  static String getAssetImageUrl(String assetName) {
+    return 'https://cdn.extended.exchange/crypto/${assetName}.svg';
+  }
+
+  static Widget buildAssetImage(
+    String assetName,
+    String category, {
+    double size = 24,
+  }) {
+    return SvgPicture.network(
+      getAssetImageUrl(assetName),
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      placeholderBuilder: (context) =>
+          _buildLoadingIcon(assetName, category, size),
+      errorBuilder: (context, error, stackTrace) =>
+          _buildFallbackIcon(assetName, category, size),
+    );
+  }
+
+  static Widget _buildLoadingIcon(
+    String assetName,
+    String category,
+    double size,
+  ) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: MarketUtils.getAssetCategoryColor(category).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(size / 2),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: size * 0.4,
+          height: size * 0.4,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            color: MarketUtils.getAssetCategoryColor(category),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildFallbackIcon(
+    String assetName,
+    String category,
+    double size,
+  ) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: MarketUtils.getAssetCategoryColor(category).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(size / 2),
+      ),
+      child: Icon(
+        MarketUtils.getAssetIcon(assetName),
+        color: MarketUtils.getAssetCategoryColor(category),
+        size: size * 0.6,
+      ),
+    );
+  }
+
+  Widget _buildAssetImage(
+    String assetName,
+    String category, {
+    double size = 24,
+  }) {
+    return buildAssetImage(assetName, category, size: size);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,12 +150,12 @@ class AssetDropdown extends ConsumerWidget {
                 ).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Icon(
-                MarketUtils.getAssetIcon(selectedMarketData.assetName),
-                color: MarketUtils.getAssetCategoryColor(
+              child: Center(
+                child: _buildAssetImage(
+                  selectedMarketData.assetName,
                   selectedMarketData.category,
+                  size: 24,
                 ),
-                size: 24,
               ),
             ),
             const SizedBox(width: 12),
@@ -521,12 +597,12 @@ class _AssetSelectorBottomSheetState extends State<AssetSelectorBottomSheet> {
                               ).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Icon(
-                              MarketUtils.getAssetIcon(market.assetName),
-                              color: MarketUtils.getAssetCategoryColor(
+                            child: Center(
+                              child: AssetDropdown.buildAssetImage(
+                                market.assetName,
                                 market.category,
+                                size: 24,
                               ),
-                              size: 24,
                             ),
                           ),
                           const SizedBox(width: 12),
