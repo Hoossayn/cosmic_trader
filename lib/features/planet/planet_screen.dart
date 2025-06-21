@@ -92,13 +92,23 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
                     _buildHeader(),
 
                     // Main planet view
-                    SizedBox(
-                      height: 50,
-                    ),
+                    SizedBox(height: 50),
                     _buildPlanetView(),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Your Planet',
+                      style: AppTheme.heading2,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Your trading performance shapes your world.',
+                      style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+                      textAlign: TextAlign.center,
+                    ),
 
                     // Market overview section
-                   // _buildMarketOverview(marketsAsync),
+                    // _buildMarketOverview(marketsAsync),
 
                     // Bottom stats and quick actions
                     _buildBottomSection(),
@@ -255,18 +265,7 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
           ),
 
           // Planet info
-          const SizedBox(height: 20),
-          Text(
-            'Your Planet',
-            style: AppTheme.heading2,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Your trading performance shapes your world.',
-            style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
-            textAlign: TextAlign.center,
-          ),
+
         ],
       ),
     );
@@ -566,7 +565,7 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
               ),
               _buildStatCard(
                 icon: Icons.eco,
-                value: '96%',
+                value: '92%',
                 label: 'Planet Health',
                 color: AppTheme.energyGreen,
               ),
