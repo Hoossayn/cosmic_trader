@@ -324,6 +324,7 @@ class AssetDropdown extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) => AssetSelectorBottomSheet(
         markets: markets,
         selectedAsset: selectedAsset,
@@ -406,323 +407,306 @@ class _AssetSelectorBottomSheetState extends State<AssetSelectorBottomSheet> {
     ];
     categories.sort();
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: AppTheme.spaceDark,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
+    return SafeArea(
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: const BoxDecoration(
+          color: AppTheme.spaceDark,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          // Handle bar
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppTheme.gray600,
-              borderRadius: BorderRadius.circular(2),
+        child: Column(
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.gray600,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
 
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Text('Select Asset', style: AppTheme.heading2),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Text('Select Asset', style: AppTheme.heading2),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: AppTheme.gray400),
                   ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.energyGreen.withOpacity(0.1),
+                ],
+              ),
+            ),
+
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                controller: _searchController,
+                style: AppTheme.bodyMedium,
+                decoration: InputDecoration(
+                  hintText: 'Search assets...',
+                  hintStyle: AppTheme.bodyMedium.copyWith(
+                    color: AppTheme.gray400,
+                  ),
+                  filled: true,
+                  fillColor: AppTheme.spaceDeep,
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppTheme.energyGreen.withOpacity(0.3),
+                    borderSide: BorderSide(
+                      color: AppTheme.cosmicBlue.withOpacity(0.3),
                     ),
                   ),
-                  child: Text(
-                    '${widget.markets.length} Assets',
-                    style: AppTheme.bodySmall.copyWith(
-                      color: AppTheme.energyGreen,
-                      fontWeight: FontWeight.w600,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppTheme.cosmicBlue.withOpacity(0.3),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: AppTheme.gray400),
-                ),
-              ],
-            ),
-          ),
-
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TextField(
-              controller: _searchController,
-              style: AppTheme.bodyMedium,
-              decoration: InputDecoration(
-                hintText: 'Search assets...',
-                hintStyle: AppTheme.bodyMedium.copyWith(
-                  color: AppTheme.gray400,
-                ),
-                filled: true,
-                fillColor: AppTheme.spaceDeep,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppTheme.cosmicBlue.withOpacity(0.3),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppTheme.cosmicBlue),
                   ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppTheme.cosmicBlue.withOpacity(0.3),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppTheme.gray400,
+                    size: 20,
                   ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.cosmicBlue),
-                ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: AppTheme.gray400,
-                  size: 20,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Category filters
-          Container(
-            height: 40,
-            padding: const EdgeInsets.only(left: 20),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                final isSelected = category == _selectedCategory;
+            // Category filters
+            Container(
+              height: 40,
+              padding: const EdgeInsets.only(left: 20),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  final isSelected = category == _selectedCategory;
 
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => _selectCategory(category),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.cosmicBlue.withOpacity(0.2)
-                            : AppTheme.spaceDeep,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppTheme.cosmicBlue
-                              : AppTheme.cosmicBlue.withOpacity(0.3),
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => _selectCategory(category),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
                         ),
-                      ),
-                      child: Text(
-                        category,
-                        style: AppTheme.bodySmall.copyWith(
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.cosmicBlue
-                              : AppTheme.gray400,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w500,
+                              ? AppTheme.cosmicBlue.withOpacity(0.2)
+                              : AppTheme.spaceDeep,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.cosmicBlue
+                                : AppTheme.cosmicBlue.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Text(
+                          category,
+                          style: AppTheme.bodySmall.copyWith(
+                            color: isSelected
+                                ? AppTheme.cosmicBlue
+                                : AppTheme.gray400,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // Assets list
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _filteredMarkets.length,
-              itemBuilder: (context, index) {
-                final market = _filteredMarkets[index];
-                final isSelected = market.name == widget.selectedAsset;
+            // Assets list
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: _filteredMarkets.length,
+                itemBuilder: (context, index) {
+                  final market = _filteredMarkets[index];
+                  final isSelected = market.name == widget.selectedAsset;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: GestureDetector(
-                    onTap: () => widget.onAssetSelected(market.name),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? AppTheme.cosmicBlue.withOpacity(0.1)
-                            : AppTheme.spaceDeep,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: GestureDetector(
+                      onTap: () => widget.onAssetSelected(market.name),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.cosmicBlue
-                              : AppTheme.cosmicBlue.withOpacity(0.3),
+                              ? AppTheme.cosmicBlue.withOpacity(0.1)
+                              : AppTheme.spaceDeep,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.cosmicBlue
+                                : AppTheme.cosmicBlue.withOpacity(0.3),
+                          ),
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          // Asset icon
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: MarketUtils.getAssetCategoryColor(
-                                market.category,
-                              ).withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Center(
-                              child: AssetDropdown.buildAssetImage(
-                                market.assetName,
-                                market.category,
-                                size: 24,
+                        child: Row(
+                          children: [
+                            // Asset icon
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: MarketUtils.getAssetCategoryColor(
+                                  market.category,
+                                ).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Center(
+                                child: AssetDropdown.buildAssetImage(
+                                  market.assetName,
+                                  market.category,
+                                  size: 24,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
+                            const SizedBox(width: 12),
 
-                          // Asset info
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      market.assetName,
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        fontWeight: FontWeight.w600,
+                            // Asset info
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        market.assetName,
+                                        style: AppTheme.bodyMedium.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            MarketUtils.getAssetCategoryColor(
-                                              market.category,
-                                            ).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        market.category,
-                                        style: AppTheme.bodySmall.copyWith(
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
                                           color:
                                               MarketUtils.getAssetCategoryColor(
                                                 market.category,
-                                              ),
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
+                                              ).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          market.category,
+                                          style: AppTheme.bodySmall.copyWith(
+                                            color:
+                                                MarketUtils.getAssetCategoryColor(
+                                                  market.category,
+                                                ),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  market.name,
-                                  style: AppTheme.bodySmall.copyWith(
-                                    color: AppTheme.gray400,
+                                    ],
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Vol: ${MarketUtils.formatLargeNumber(market.volume)}',
-                                  style: AppTheme.bodySmall.copyWith(
-                                    color: AppTheme.gray500,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Price and change
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                MarketUtils.formatPrice(market.price),
-                                style: AppTheme.bodyMedium.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    market.isPositive
-                                        ? Icons.trending_up
-                                        : Icons.trending_down,
-                                    size: 14,
-                                    color: market.isPositive
-                                        ? AppTheme.energyGreen
-                                        : AppTheme.dangerRed,
-                                  ),
-                                  const SizedBox(width: 2),
+                                  const SizedBox(height: 2),
                                   Text(
-                                    MarketUtils.formatPercentage(
-                                      market.priceChangePercentage,
-                                    ),
+                                    market.name,
                                     style: AppTheme.bodySmall.copyWith(
-                                      color: market.isPositive
-                                          ? AppTheme.energyGreen
-                                          : AppTheme.dangerRed,
-                                      fontWeight: FontWeight.w500,
+                                      color: AppTheme.gray400,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Vol: ${MarketUtils.formatLargeNumber(market.volume)}',
+                                    style: AppTheme.bodySmall.copyWith(
+                                      color: AppTheme.gray500,
+                                      fontSize: 10,
                                     ),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-
-                          if (isSelected) ...[
-                            const SizedBox(width: 12),
-                            const Icon(
-                              Icons.check_circle,
-                              color: AppTheme.cosmicBlue,
-                              size: 20,
                             ),
+
+                            // Price and change
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  MarketUtils.formatPrice(market.price),
+                                  style: AppTheme.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      market.isPositive
+                                          ? Icons.trending_up
+                                          : Icons.trending_down,
+                                      size: 14,
+                                      color: market.isPositive
+                                          ? AppTheme.energyGreen
+                                          : AppTheme.dangerRed,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      MarketUtils.formatPercentage(
+                                        market.priceChangePercentage,
+                                      ),
+                                      style: AppTheme.bodySmall.copyWith(
+                                        color: market.isPositive
+                                            ? AppTheme.energyGreen
+                                            : AppTheme.dangerRed,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+
+                            if (isSelected) ...[
+                              const SizedBox(width: 12),
+                              const Icon(
+                                Icons.check_circle,
+                                color: AppTheme.cosmicBlue,
+                                size: 20,
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
