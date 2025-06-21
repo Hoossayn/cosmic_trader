@@ -401,11 +401,13 @@ class _AssetSelectorBottomSheetState extends State<AssetSelectorBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final categories = [
-      'All',
-      ...widget.markets.map((m) => m.category).toSet().toList(),
-    ];
-    categories.sort();
+    final otherCategories = widget.markets
+        .map((m) => m.category)
+        .toSet()
+        .toList();
+    otherCategories.sort();
+
+    final categories = ['All', ...otherCategories];
 
     return SafeArea(
       child: Container(
