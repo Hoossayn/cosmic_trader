@@ -79,13 +79,12 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
           ),
 
           // Confetti overlay
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
+          Align(
+            alignment: Alignment.topCenter,
             child: ConfettiWidget(
               confettiController: _confettiController,
-              blastDirection: 1.5708, // Down
+              blastDirection: 1.5708, 
+              blastDirectionality: BlastDirectionality.explosive,
               maxBlastForce: 20,
               minBlastForce: 5,
               emissionFrequency: 0.3,
