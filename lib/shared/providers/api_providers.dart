@@ -23,7 +23,7 @@ final positionsApiServiceProvider = Provider<PositionsApiService>((ref) {
   return PositionsApiService(apiClient);
 });
 
-// User Positions Provider (legacy - for backward compatibility)
+// User Positions Provider (primary - cached and efficient)
 final userPositionsProvider = FutureProvider<List<Position>>((ref) async {
   final positionsService = ref.watch(positionsApiServiceProvider);
   return await positionsService.getUserPositions();
@@ -41,7 +41,65 @@ final cachedPositionsProvider = FutureProvider<List<Position>>((ref) async {
   return await positionsService.getUserPositions();
 });
 
-// Stream provider that combines auto-refresh with manual refresh capability
+// Auto-disposable stream provider factory for screen-specific real-time updates
+StreamProvider<List<Position>> createRealTimePositionsProvider() {
+  return StreamProvider<List<Position>>((ref) {
+    final positionsService = ref.watch(positionsApiServiceProvider);
+
+    final controller = StreamController<List<Position>>();
+    Timer? autoRefreshTimer;
+    List<Position>? cachedPositions;
+    bool isInitialLoad = true;
+
+    Future<void> fetchAndUpdate() async {
+      try {
+        final positions = await positionsService.getUserPositions();
+        cachedPositions = positions;
+
+        if (!controller.isClosed) {
+          controller.add(positions);
+        }
+
+        isInitialLoad = false;
+      } catch (error) {
+        // On error, emit cached data if available, otherwise emit error
+        if (cachedPositions != null && !controller.isClosed) {
+          controller.add(cachedPositions!);
+        } else if (!controller.isClosed) {
+          controller.addError(error);
+        }
+      }
+    }
+
+    // Listen to manual refresh trigger
+    final refreshTriggerSubscription = ref.listen(
+      positionsRefreshTriggerProvider,
+      (previous, next) {
+        if (previous != next && !isInitialLoad) {
+          fetchAndUpdate();
+        }
+      },
+    );
+
+    // Initial fetch
+    fetchAndUpdate();
+
+    // Auto-refresh every 5 seconds only when this provider is active
+    autoRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      fetchAndUpdate();
+    });
+
+    ref.onDispose(() {
+      autoRefreshTimer?.cancel();
+      refreshTriggerSubscription.close();
+      controller.close();
+    });
+
+    return controller.stream;
+  });
+}
+
+// Real-time positions provider that auto-disposes when not used
 final realTimePositionsProvider = StreamProvider<List<Position>>((ref) {
   final positionsService = ref.watch(positionsApiServiceProvider);
 
@@ -83,11 +141,12 @@ final realTimePositionsProvider = StreamProvider<List<Position>>((ref) {
   // Initial fetch
   fetchAndUpdate();
 
-  // Auto-refresh every 10 seconds (less aggressive for better performance)
+  // Auto-refresh every 5 seconds only when this provider is active
   autoRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
     fetchAndUpdate();
   });
 
+  // Important: This will automatically stop when no widgets are watching
   ref.onDispose(() {
     autoRefreshTimer?.cancel();
     refreshTriggerSubscription.close();
@@ -103,7 +162,7 @@ final allPositionsProvider = FutureProvider<List<Position>>((ref) async {
   return await positionsService.getAllPositions();
 });
 
-// Total Unrealized PnL Provider (real-time)
+// Total Unrealized PnL Provider (real-time) - only active when positions are being watched
 final realTimeUnrealizedPnlProvider = Provider<double>((ref) {
   final positionsAsync = ref.watch(realTimePositionsProvider);
 
@@ -117,7 +176,7 @@ final realTimeUnrealizedPnlProvider = Provider<double>((ref) {
   );
 });
 
-// Total Margin Used Provider (real-time)
+// Total Margin Used Provider (real-time) - only active when positions are being watched
 final realTimeMarginUsedProvider = Provider<double>((ref) {
   final positionsAsync = ref.watch(realTimePositionsProvider);
 
@@ -131,13 +190,12 @@ final realTimeMarginUsedProvider = Provider<double>((ref) {
   );
 });
 
-// Total Unrealized PnL Provider (legacy)
+// Static P&L providers (for non-real-time use)
 final totalUnrealizedPnlProvider = FutureProvider<double>((ref) async {
   final positionsService = ref.watch(positionsApiServiceProvider);
   return await positionsService.getTotalUnrealizedPnl();
 });
 
-// Total Margin Used Provider (legacy)
 final totalMarginUsedProvider = FutureProvider<double>((ref) async {
   final positionsService = ref.watch(positionsApiServiceProvider);
   return await positionsService.getTotalMarginUsed();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/position_models.dart';
 import '../../shared/providers/api_providers.dart';
@@ -17,38 +18,96 @@ class OpenTradesScreen extends ConsumerStatefulWidget {
 }
 
 class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
+  Timer? _refreshTimer;
+  late StateProvider<List<Position>> _positionsStateProvider;
+  late StateProvider<bool> _isLoadingProvider;
+  late StateProvider<String?> _errorProvider;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _positionsStateProvider = StateProvider<List<Position>>((ref) => []);
+    _isLoadingProvider = StateProvider<bool>((ref) => true);
+    _errorProvider = StateProvider<String?>((ref) => null);
+
+    // Start fetching data immediately
+    _fetchPositions();
+
+    // Set up periodic refresh only while this screen is active
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) {
+        _fetchPositions();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    // Clean up timer when screen is disposed
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchPositions() async {
+    if (!mounted) return;
+
+    try {
+      final positionsService = ref.read(positionsApiServiceProvider);
+      final positions = await positionsService.getUserPositions();
+
+      if (mounted) {
+        ref.read(_positionsStateProvider.notifier).state = positions;
+        ref.read(_isLoadingProvider.notifier).state = false;
+        ref.read(_errorProvider.notifier).state = null;
+      }
+    } catch (error) {
+      if (mounted) {
+        ref.read(_isLoadingProvider.notifier).state = false;
+        ref.read(_errorProvider.notifier).state = error.toString();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final positionsAsync = ref.watch(realTimePositionsProvider);
+    final positions = ref.watch(_positionsStateProvider);
+    final isLoading = ref.watch(_isLoadingProvider);
+    final error = ref.watch(_errorProvider);
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(positionsAsync),
-            //const PositionsSummaryCard(showDetailed: true),
-            Expanded(
-              child: positionsAsync.when(
-                data: (positions) => positions.isEmpty
-                    ? _buildEmptyState()
-                    : _buildPositionsList(positions),
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stackTrace) => _buildErrorState(error),
-              ),
-            ),
+            _buildHeader(positions.length),
+            Expanded(child: _buildContent(positions, isLoading, error)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(AsyncValue<List<Position>> positionsAsync) {
-    final positionCount = positionsAsync.when(
-      data: (positions) => positions.length,
-      loading: () => 0,
-      error: (_, __) => 0,
-    );
+  Widget _buildContent(
+    List<Position> positions,
+    bool isLoading,
+    String? error,
+  ) {
+    if (error != null && positions.isEmpty) {
+      return _buildErrorState(error);
+    }
 
+    if (isLoading && positions.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (positions.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return _buildPositionsList(positions);
+  }
+
+  Widget _buildHeader(int positionCount) {
     return Container(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -131,7 +190,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
     );
   }
 
-  Widget _buildErrorState(Object error) {
+  Widget _buildErrorState(String error) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -153,13 +212,13 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
           Text('Error Loading Positions', style: AppTheme.heading3),
           const SizedBox(height: 8),
           Text(
-            error.toString(),
+            error,
             style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
           GestureDetector(
-            onTap: () => triggerPositionsRefresh(ref),
+            onTap: () => _fetchPositions(),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
@@ -183,8 +242,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
   Widget _buildPositionsList(List<Position> positions) {
     return RefreshIndicator(
       onRefresh: () async {
-        // Trigger manual refresh
-        triggerPositionsRefresh(ref);
+        await _fetchPositions();
         // Small delay to show refresh action
         await Future.delayed(const Duration(milliseconds: 500));
       },
@@ -301,7 +359,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
               children: [
                 _buildDetailRow(
                   'Size:',
-                  '${position.sizeValue.toStringAsFixed(4)} ${_getBaseAsset(position.market)}',
+                  '${position.sizeValue.toStringAsFixed(2)} ${_getBaseAsset(position.market)}',
                 ),
                 const SizedBox(height: 8),
                 _buildDetailRow(
