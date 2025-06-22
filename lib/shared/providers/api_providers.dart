@@ -23,7 +23,6 @@ final positionsApiServiceProvider = Provider<PositionsApiService>((ref) {
   return PositionsApiService(apiClient);
 });
 
-
 // User Positions Provider (legacy - for backward compatibility)
 final userPositionsProvider = FutureProvider<List<Position>>((ref) async {
   final positionsService = ref.watch(positionsApiServiceProvider);
