@@ -1,60 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
-import '../../shared/models/trading_models.dart';
+import '../../shared/models/position_models.dart';
+import '../../shared/providers/api_providers.dart';
+import '../../shared/widgets/asset_dropdown.dart';
+import '../../shared/widgets/positions_summary_card.dart';
+import '../../shared/utils/market_utils.dart';
 
-class OpenTradesScreen extends StatefulWidget {
+class OpenTradesScreen extends ConsumerStatefulWidget {
   const OpenTradesScreen({super.key});
 
   @override
-  State<OpenTradesScreen> createState() => _OpenTradesScreenState();
+  ConsumerState<OpenTradesScreen> createState() => _OpenTradesScreenState();
 }
 
-class _OpenTradesScreenState extends State<OpenTradesScreen> {
-  // Mock data for open trades
-  final List<TradeModel> _openTrades = [
-    TradeModel(
-      id: '1',
-      userId: 'user1',
-      assetSymbol: 'BTC-USD',
-      direction: TradeDirection.long,
-      amount: 50.0,
-      leverage: 2.0,
-      entryPrice: 43250.0,
-      status: TradeStatus.active,
-      type: TradeType.market,
-      pnl: 125.50,
-      xpEarned: 5,
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-    TradeModel(
-      id: '2',
-      userId: 'user1',
-      assetSymbol: 'ETH-USD',
-      direction: TradeDirection.short,
-      amount: 100.0,
-      leverage: 5.0,
-      entryPrice: 2580.5,
-      status: TradeStatus.active,
-      type: TradeType.market,
-      pnl: -45.20,
-      xpEarned: 10,
-      createdAt: DateTime.now().subtract(const Duration(minutes: 30)),
-    ),
-  ];
-
+class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
   @override
   Widget build(BuildContext context) {
+    final positionsAsync = ref.watch(realTimePositionsProvider);
+
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(positionsAsync),
+            //const PositionsSummaryCard(showDetailed: true),
             Expanded(
-              child: _openTrades.isEmpty
-                  ? _buildEmptyState()
-                  : _buildTradesList(),
+              child: positionsAsync.when(
+                data: (positions) => positions.isEmpty
+                    ? _buildEmptyState()
+                    : _buildPositionsList(positions),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, stackTrace) => _buildErrorState(error),
+              ),
             ),
           ],
         ),
@@ -62,7 +42,13 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(AsyncValue<List<Position>> positionsAsync) {
+    final positionCount = positionsAsync.when(
+      data: (positions) => positions.length,
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+
     return Container(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -72,7 +58,7 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
             icon: const Icon(Icons.arrow_back, color: AppTheme.white),
           ),
           const SizedBox(width: 8),
-          Text('Open Trades', style: AppTheme.heading2),
+          Text('Open Positions', style: AppTheme.heading2),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -82,7 +68,7 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
               border: Border.all(color: AppTheme.energyGreen.withOpacity(0.3)),
             ),
             child: Text(
-              '${_openTrades.length} Active',
+              '$positionCount Active',
               style: AppTheme.bodySmall.copyWith(
                 color: AppTheme.energyGreen,
                 fontWeight: FontWeight.w600,
@@ -113,7 +99,7 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          Text('No Open Trades', style: AppTheme.heading3),
+          Text('No Open Positions', style: AppTheme.heading3),
           const SizedBox(height: 8),
           Text(
             'You don\'t have any active positions right now.',
@@ -122,7 +108,7 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
           ),
           const SizedBox(height: 32),
           GestureDetector(
-            onTap: () => context.go('/trade'),
+            onTap: () => context.go('/trading'),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
@@ -145,25 +131,80 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
     );
   }
 
-  Widget _buildTradesList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _openTrades.length,
-      itemBuilder: (context, index) {
-        final trade = _openTrades[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildTradeCard(trade),
-        );
-      },
+  Widget _buildErrorState(Object error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppTheme.spaceDeep,
+              borderRadius: BorderRadius.circular(40),
+            ),
+            child: const Icon(
+              Icons.error_outline,
+              color: AppTheme.dangerRed,
+              size: 40,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text('Error Loading Positions', style: AppTheme.heading3),
+          const SizedBox(height: 8),
+          Text(
+            error.toString(),
+            style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          GestureDetector(
+            onTap: () => triggerPositionsRefresh(ref),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.cosmicBlue,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Text(
+                'Retry',
+                style: AppTheme.bodyMedium.copyWith(
+                  color: AppTheme.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildTradeCard(TradeModel trade) {
-    final isProfitable = trade.pnl >= 0;
-    final currentPrice = _getCurrentPrice(trade.assetSymbol);
-    final priceChange = currentPrice - trade.entryPrice;
-    final priceChangePercent = (priceChange / trade.entryPrice) * 100;
+  Widget _buildPositionsList(List<Position> positions) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        // Trigger manual refresh
+        triggerPositionsRefresh(ref);
+        // Small delay to show refresh action
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(20),
+        itemCount: positions.length,
+        itemBuilder: (context, index) {
+          final position = positions[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildPositionCard(position),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPositionCard(Position position) {
+    final isProfitable = position.isProfitable;
+    final roiPercent = position.roiPercentage;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -186,13 +227,15 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: _getAssetColor(trade.assetSymbol).withOpacity(0.1),
+                  color: _getAssetColor(position.market).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Icon(
-                  _getAssetIcon(trade.assetSymbol),
-                  color: _getAssetColor(trade.assetSymbol),
-                  size: 24,
+                child: Center(
+                  child: AssetDropdown.buildAssetImage(
+                    _getBaseAsset(position.market),
+                    'crypto', // Default category for positions
+                    size: 24,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -201,15 +244,15 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      trade.assetSymbol,
+                      position.market,
                       style: AppTheme.bodyMedium.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
-                      '${trade.leverage.toStringAsFixed(0)}x ${trade.direction.name.toUpperCase()}',
+                      '${position.leverageValue.toStringAsFixed(0)}x ${position.side}',
                       style: AppTheme.bodySmall.copyWith(
-                        color: trade.direction == TradeDirection.long
+                        color: position.isLong
                             ? AppTheme.energyGreen
                             : AppTheme.dangerRed,
                         fontWeight: FontWeight.w500,
@@ -224,7 +267,7 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${isProfitable ? '+' : ''}\$${trade.pnl.toStringAsFixed(2)}',
+                    '${isProfitable ? '+' : ''}\$${position.unrealisedPnlValue.toStringAsFixed(2)}',
                     style: AppTheme.bodyMedium.copyWith(
                       color: isProfitable
                           ? AppTheme.energyGreen
@@ -233,7 +276,7 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
                     ),
                   ),
                   Text(
-                    '${isProfitable ? '+' : ''}${priceChangePercent.toStringAsFixed(2)}%',
+                    '${isProfitable ? '+' : ''}${roiPercent.toStringAsFixed(2)}%',
                     style: AppTheme.bodySmall.copyWith(
                       color: isProfitable
                           ? AppTheme.energyGreen
@@ -247,7 +290,7 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
 
           const SizedBox(height: 16),
 
-          // Trade details
+          // Position details
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -257,28 +300,40 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
             child: Column(
               children: [
                 _buildDetailRow(
-                  'Amount:',
-                  '\$${trade.amount.toStringAsFixed(0)}',
+                  'Size:',
+                  '${position.sizeValue.toStringAsFixed(4)} ${_getBaseAsset(position.market)}',
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  'Value:',
+                  '\$${position.valueValue.toStringAsFixed(2)}',
                 ),
                 const SizedBox(height: 8),
                 _buildDetailRow(
                   'Entry Price:',
-                  '\$${trade.entryPrice.toStringAsFixed(2)}',
+                  '\$${position.openPriceValue.toStringAsFixed(4)}',
                 ),
                 const SizedBox(height: 8),
                 _buildDetailRow(
-                  'Current Price:',
-                  '\$${currentPrice.toStringAsFixed(2)}',
+                  'Market Price:',
+                  '\$${position.markPriceValue.toStringAsFixed(4)}',
                 ),
                 const SizedBox(height: 8),
                 _buildDetailRow(
-                  'Position Size:',
-                  '\$${trade.positionSize.toStringAsFixed(2)}',
+                  'Liquidation Price:',
+                  '\$${position.liquidationPriceValue.toStringAsFixed(4)}',
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  'Margin:',
+                  '\$${position.marginValue.toStringAsFixed(2)}',
                 ),
                 const SizedBox(height: 8),
                 _buildDetailRow(
                   'Time Open:',
-                  _formatDuration(DateTime.now().difference(trade.createdAt)),
+                  _formatDuration(
+                    DateTime.now().difference(position.createdAtDateTime),
+                  ),
                 ),
               ],
             ),
@@ -291,7 +346,7 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _editTrade(trade),
+                  onTap: () => _editPosition(position),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
@@ -323,7 +378,7 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: GestureDetector(
-                  onTap: () => _closeTrade(trade),
+                  onTap: () => _closePosition(position),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
@@ -375,44 +430,35 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
     );
   }
 
-  IconData _getAssetIcon(String symbol) {
-    switch (symbol) {
-      case 'BTC-USD':
-        return Icons.currency_bitcoin;
-      case 'ETH-USD':
-        return Icons.diamond;
-      case 'SOL-USD':
-        return Icons.wb_sunny;
-      default:
-        return Icons.monetization_on;
-    }
-  }
-
-  Color _getAssetColor(String symbol) {
-    switch (symbol) {
-      case 'BTC-USD':
+  Color _getAssetColor(String market) {
+    final asset = _getBaseAsset(market);
+    switch (asset.toUpperCase()) {
+      case 'BTC':
         return AppTheme.energyGreen;
-      case 'ETH-USD':
+      case 'ETH':
         return AppTheme.cosmicBlue;
-      case 'SOL-USD':
+      case 'SOL':
         return AppTheme.starYellow;
+      case 'STRK':
+        return Colors.purple;
+      case 'ADA':
+        return Colors.blue;
+      case 'DOT':
+        return Colors.pink;
+      case 'MATIC':
+        return Colors.indigo;
+      case 'AVAX':
+        return Colors.red;
+      case 'LINK':
+        return Colors.cyan;
       default:
         return AppTheme.gray400;
     }
   }
 
-  double _getCurrentPrice(String symbol) {
-    // Mock current prices
-    switch (symbol) {
-      case 'BTC-USD':
-        return 43375.50;
-      case 'ETH-USD':
-        return 2535.30;
-      case 'SOL-USD':
-        return 104.42;
-      default:
-        return 0.0;
-    }
+  String _getBaseAsset(String market) {
+    // Extract base asset from market pair (e.g., 'BTC-USD' -> 'BTC')
+    return market.split('-').first;
   }
 
   String _formatDuration(Duration duration) {
@@ -425,12 +471,12 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
     }
   }
 
-  void _editTrade(TradeModel trade) {
-    // TODO: Implement edit trade functionality
+  void _editPosition(Position position) {
+    // TODO: Implement edit position functionality
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Edit trade functionality coming soon!',
+          'Edit position functionality coming soon!',
           style: AppTheme.bodyMedium.copyWith(color: AppTheme.white),
         ),
         backgroundColor: AppTheme.cosmicBlue,
@@ -440,15 +486,15 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
     );
   }
 
-  void _closeTrade(TradeModel trade) {
+  void _closePosition(Position position) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.spaceDeep,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Close Trade', style: AppTheme.heading3),
+        title: Text('Close Position', style: AppTheme.heading3),
         content: Text(
-          'Are you sure you want to close this ${trade.assetSymbol} position?',
+          'Are you sure you want to close this ${position.market} position?\n\nCurrent P&L: ${position.isProfitable ? '+' : ''}\$${position.unrealisedPnlValue.toStringAsFixed(2)}',
           style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
         ),
         actions: [
@@ -462,28 +508,26 @@ class _OpenTradesScreenState extends State<OpenTradesScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              setState(() {
-                _openTrades.removeWhere((t) => t.id == trade.id);
-              });
+              // TODO: Implement actual position closing API call
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Row(
                     children: [
                       const Icon(
-                        Icons.check_circle,
-                        color: AppTheme.energyGreen,
+                        Icons.info,
+                        color: AppTheme.cosmicBlue,
                         size: 20,
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Trade closed successfully!',
+                        'Position closing API not yet implemented',
                         style: AppTheme.bodyMedium.copyWith(
                           color: AppTheme.white,
                         ),
                       ),
                     ],
                   ),
-                  backgroundColor: AppTheme.energyGreen,
+                  backgroundColor: AppTheme.cosmicBlue,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

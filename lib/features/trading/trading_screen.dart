@@ -29,6 +29,8 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
   double _selectedAmount = 50.0;
   double _selectedLeverage = 2.0;
   bool _isTrading = false;
+  bool _showCustomAmountInput = false;
+  final TextEditingController _customAmountController = TextEditingController();
 
   @override
   void initState() {
@@ -46,6 +48,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
   void dispose() {
     _confettiController.dispose();
     _pulseController.dispose();
+    _customAmountController.dispose();
     super.dispose();
   }
 
@@ -145,23 +148,37 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.energyGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppTheme.energyGreen.withOpacity(0.3),
+              GestureDetector(
+                onTap: () => context.push('/practice'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
                   ),
-                ),
-                child: Text(
-                  'Practice Mode',
-                  style: AppTheme.bodySmall.copyWith(
-                    color: AppTheme.energyGreen,
-                    fontWeight: FontWeight.w600,
+                  decoration: BoxDecoration(
+                    color: AppTheme.energyGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppTheme.energyGreen.withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.school,
+                        color: AppTheme.energyGreen,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Practice Mode',
+                        style: AppTheme.bodySmall.copyWith(
+                          color: AppTheme.energyGreen,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -292,18 +309,158 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Amount', style: AppTheme.heading3),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Amount', style: AppTheme.heading3),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _showCustomAmountInput = !_showCustomAmountInput;
+                  if (_showCustomAmountInput) {
+                    _customAmountController.text = _selectedAmount
+                        .toStringAsFixed(0);
+                  }
+                });
+                //Vibration.vibrate(duration: 50);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _showCustomAmountInput
+                      ? AppTheme.cosmicBlue.withOpacity(0.2)
+                      : AppTheme.spaceDeep,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _showCustomAmountInput
+                        ? AppTheme.cosmicBlue
+                        : AppTheme.cosmicBlue.withOpacity(0.3),
+                  ),
+                ),
+                child: Icon(
+                  Icons.edit_outlined,
+                  color: _showCustomAmountInput
+                      ? AppTheme.cosmicBlue
+                      : AppTheme.gray400,
+                  size: 20,
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
         AmountSelector(
           selectedAmount: _selectedAmount,
           onAmountChanged: (amount) {
             setState(() {
               _selectedAmount = amount;
+              _customAmountController.text = amount.toStringAsFixed(0);
             });
             //Vibration.vibrate(duration: 30);
           },
         ),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          height: _showCustomAmountInput ? null : 0,
+          child: _showCustomAmountInput
+              ? _buildCustomAmountInput()
+                    .animate()
+                    .slideY(
+                      begin: -0.5,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutBack,
+                    )
+                    .fadeIn(duration: const Duration(milliseconds: 200))
+              : const SizedBox.shrink(),
+        ),
       ],
+    );
+  }
+
+  Widget _buildCustomAmountInput() {
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.spaceDeep,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Custom Amount',
+            style: AppTheme.bodyMedium.copyWith(
+              color: AppTheme.cosmicBlue,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _customAmountController,
+            keyboardType: TextInputType.number,
+            style: AppTheme.bodyLarge.copyWith(
+              color: AppTheme.white,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Enter amount...',
+              hintStyle: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+              prefixText: '\$ ',
+              prefixStyle: AppTheme.bodyLarge.copyWith(
+                color: AppTheme.energyGreen,
+                fontWeight: FontWeight.w600,
+              ),
+              filled: true,
+              fillColor: AppTheme.spaceDark,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: AppTheme.cosmicBlue.withOpacity(0.3),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: AppTheme.cosmicBlue.withOpacity(0.3),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppTheme.cosmicBlue),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+            onChanged: (value) {
+              final amount = double.tryParse(value);
+              if (amount != null && amount > 0) {
+                setState(() {
+                  _selectedAmount = amount;
+                });
+              }
+            },
+            onSubmitted: (value) {
+              final amount = double.tryParse(value);
+              if (amount != null && amount > 0) {
+                setState(() {
+                  _selectedAmount = amount;
+                  _showCustomAmountInput = false;
+                });
+                //Vibration.vibrate(duration: 50);
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Minimum: \$1 • Maximum: \$10,000',
+            style: AppTheme.bodySmall.copyWith(color: AppTheme.gray500),
+          ),
+        ],
+      ),
     );
   }
 

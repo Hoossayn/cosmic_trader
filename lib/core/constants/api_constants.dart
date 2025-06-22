@@ -7,11 +7,13 @@ class ApiConstants {
 
   // Endpoints
   static const String markets = '$apiVersion/info/markets';
+  static const String userPositions = '$apiVersion/user/positions';
 
   // Headers
   static const Map<String, String> defaultHeaders = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
+    'X-Api-Key': 'c3a787da54ff6dc257e1b50836e00957',
   };
 
   // Timeouts

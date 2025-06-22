@@ -16,7 +16,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
   final List<Map<String, dynamic>> _leaderboardData = [
     {
       'rank': 1,
-      'username': 'Hakim Hussain',
+      'username': 'Hoossayn',
       'level': 4,
       'xp': 316,
       'avatar': '👑',

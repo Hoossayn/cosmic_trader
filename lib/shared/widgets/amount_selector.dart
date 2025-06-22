@@ -41,10 +41,10 @@ class AmountSelector extends StatelessWidget {
           },
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 10),
 
         // Custom amount input (optional)
-        _buildCustomAmountInput(),
+       // _buildCustomAmountInput(),
       ],
     );
   }

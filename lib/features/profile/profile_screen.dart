@@ -66,7 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Hakim Hussain', style: AppTheme.heading2),
+              Text('Hoossayn', style: AppTheme.heading2),
               const SizedBox(height: 4),
               Row(
                 children: [
