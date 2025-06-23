@@ -17,15 +17,20 @@ class OpenTradesScreen extends ConsumerStatefulWidget {
   ConsumerState<OpenTradesScreen> createState() => _OpenTradesScreenState();
 }
 
-class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
+class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
+    with SingleTickerProviderStateMixin {
   Timer? _refreshTimer;
   late StateProvider<List<Position>> _positionsStateProvider;
   late StateProvider<bool> _isLoadingProvider;
   late StateProvider<String?> _errorProvider;
 
+  late TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+
+    _tabController = TabController(length: 2, vsync: this);
 
     _positionsStateProvider = StateProvider<List<Position>>((ref) => []);
     _isLoadingProvider = StateProvider<bool>((ref) => true);
@@ -46,6 +51,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
   void dispose() {
     // Clean up timer when screen is disposed
     _refreshTimer?.cancel();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -79,8 +85,17 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(positions.length),
-            Expanded(child: _buildContent(positions, isLoading, error)),
+            _buildHeader(),
+            _buildTabBar(),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildOpenTradesTab(positions, isLoading, error),
+                  _buildOrderHistoryTab(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -107,7 +122,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
     return _buildPositionsList(positions);
   }
 
-  Widget _buildHeader(int positionCount) {
+  Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -117,24 +132,146 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen> {
             icon: const Icon(Icons.arrow_back, color: AppTheme.white),
           ),
           const SizedBox(width: 8),
-          Text('Open Positions', style: AppTheme.heading2),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.energyGreen.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.energyGreen.withOpacity(0.3)),
+          Text('Trading Activity', style: AppTheme.heading2),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    final positions = ref.watch(_positionsStateProvider);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: AppTheme.spaceDeep,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(
+          color: AppTheme.cosmicBlue,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelColor: AppTheme.white,
+        unselectedLabelColor: AppTheme.gray400,
+        labelStyle: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+        unselectedLabelStyle: AppTheme.bodyMedium,
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.trending_up, size: 18),
+                const SizedBox(width: 8),
+                Text('Open Trades'),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.energyGreen.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppTheme.energyGreen.withOpacity(0.5),
+                    ),
+                  ),
+                  child: Text(
+                    '${positions.length}',
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.energyGreen,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: Text(
-              '$positionCount Active',
-              style: AppTheme.bodySmall.copyWith(
-                color: AppTheme.energyGreen,
-                fontWeight: FontWeight.w600,
-              ),
+          ),
+          const Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.history, size: 18),
+                SizedBox(width: 8),
+                Text('Order History'),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOpenTradesTab(
+    List<Position> positions,
+    bool isLoading,
+    String? error,
+  ) {
+    return _buildContent(positions, isLoading, error);
+  }
+
+  Widget _buildOrderHistoryTab() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppTheme.spaceDeep,
+                borderRadius: BorderRadius.circular(40),
+              ),
+              child: const Icon(
+                Icons.history,
+                color: AppTheme.gray400,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text('Order History', style: AppTheme.heading3),
+            const SizedBox(height: 8),
+            Text(
+              'Order history functionality coming soon!\nYou\'ll be able to view all your past trades here.',
+              style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.cosmicBlue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.construction,
+                    color: AppTheme.cosmicBlue,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'In Development',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.cosmicBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2),
       ),
     );
   }
