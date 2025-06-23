@@ -3,8 +3,10 @@ import 'dart:async';
 import '../../core/network/api_client.dart';
 import '../../core/network/market_api_service.dart';
 import '../../core/network/positions_api_service.dart';
+import '../../core/network/orders_api_service.dart';
 import '../../shared/models/market_models.dart';
 import '../../shared/models/position_models.dart';
+import '../../shared/models/order_models.dart';
 
 // API Client Provider
 final apiClientProvider = Provider<ApiClient>((ref) {
@@ -21,6 +23,12 @@ final marketApiServiceProvider = Provider<MarketApiService>((ref) {
 final positionsApiServiceProvider = Provider<PositionsApiService>((ref) {
   final apiClient = ref.watch(apiClientProvider);
   return PositionsApiService(apiClient);
+});
+
+// Orders API Service Provider
+final ordersApiServiceProvider = Provider<OrdersApiService>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
+  return OrdersApiService(apiClient);
 });
 
 // User Positions Provider (primary - cached and efficient)
@@ -273,6 +281,37 @@ final marketCategoriesProvider = FutureProvider<List<String>>((ref) async {
   categories.sort();
   return categories;
 });
+
+// Order History Provider
+final orderHistoryProvider = FutureProvider<List<Order>>((ref) async {
+  final ordersService = ref.watch(ordersApiServiceProvider);
+  return await ordersService.getOrderHistory();
+});
+
+// Order History by Market Provider
+final orderHistoryByMarketProvider = FutureProvider.family<List<Order>, String>(
+  (ref, market) async {
+    final ordersService = ref.watch(ordersApiServiceProvider);
+    return await ordersService.getOrderHistoryByMarket(market: market);
+  },
+);
+
+// Order History by Side Provider
+final orderHistoryBySideProvider = FutureProvider.family<List<Order>, String>((
+  ref,
+  side,
+) async {
+  final ordersService = ref.watch(ordersApiServiceProvider);
+  return await ordersService.getOrderHistoryBySide(side: side);
+});
+
+// Order History by Status Provider
+final orderHistoryByStatusProvider = FutureProvider.family<List<Order>, String>(
+  (ref, status) async {
+    final ordersService = ref.watch(ordersApiServiceProvider);
+    return await ordersService.getOrderHistoryByStatus(status: status);
+  },
+);
 
 // Helper function to manually trigger refresh
 void triggerPositionsRefresh(WidgetRef ref) {

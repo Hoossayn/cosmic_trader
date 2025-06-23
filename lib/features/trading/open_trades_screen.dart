@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'dart:async';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/position_models.dart';
+import '../../shared/models/order_models.dart';
 import '../../shared/providers/api_providers.dart';
 import '../../shared/widgets/asset_dropdown.dart';
 import '../../shared/widgets/positions_summary_card.dart';
@@ -216,62 +217,133 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
   }
 
   Widget _buildOrderHistoryTab() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppTheme.spaceDeep,
-                borderRadius: BorderRadius.circular(40),
-              ),
-              child: const Icon(
-                Icons.history,
-                color: AppTheme.gray400,
-                size: 40,
-              ),
+    final orderHistoryAsync = ref.watch(orderHistoryProvider);
+
+    return orderHistoryAsync.when(
+      data: (orders) => _buildOrderHistoryContent(orders),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppTheme.energyGreen),
+      ),
+      error: (error, stack) => _buildOrderHistoryErrorState(error.toString()),
+    );
+  }
+
+  Widget _buildOrderHistoryContent(List<Order> orders) {
+    if (orders.isEmpty) {
+      return _buildOrderHistoryEmptyState();
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(orderHistoryProvider);
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(20),
+        itemCount: orders.length,
+        itemBuilder: (context, index) {
+          final order = orders[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildOrderCard(order),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildOrderHistoryEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppTheme.spaceDeep,
+              borderRadius: BorderRadius.circular(40),
             ),
-            const SizedBox(height: 24),
-            Text('Order History', style: AppTheme.heading3),
-            const SizedBox(height: 8),
-            Text(
-              'Order history functionality coming soon!\nYou\'ll be able to view all your past trades here.',
-              style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            Container(
+            child: const Icon(Icons.history, color: AppTheme.gray400, size: 40),
+          ),
+          const SizedBox(height: 24),
+          Text('No Order History', style: AppTheme.heading3),
+          const SizedBox(height: 8),
+          Text(
+            'You haven\'t placed any orders yet.\nStart trading to see your order history here.',
+            style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          GestureDetector(
+            onTap: () => _tabController.animateTo(0),
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: AppTheme.cosmicBlue.withOpacity(0.1),
+                gradient: const LinearGradient(
+                  colors: [AppTheme.energyGreen, AppTheme.cosmicBlue],
+                ),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.construction,
-                    color: AppTheme.cosmicBlue,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'In Development',
-                    style: AppTheme.bodyMedium.copyWith(
-                      color: AppTheme.cosmicBlue,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+              child: Text(
+                'Start Trading',
+                style: AppTheme.bodyMedium.copyWith(
+                  color: AppTheme.spaceDark,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ],
-        ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2),
+          ),
+        ],
+      ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2),
+    );
+  }
+
+  Widget _buildOrderHistoryErrorState(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppTheme.spaceDeep,
+              borderRadius: BorderRadius.circular(40),
+            ),
+            child: const Icon(
+              Icons.error_outline,
+              color: AppTheme.dangerRed,
+              size: 40,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text('Error Loading Order History', style: AppTheme.heading3),
+          const SizedBox(height: 8),
+          Text(
+            error,
+            style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          GestureDetector(
+            onTap: () => ref.invalidate(orderHistoryProvider),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTheme.cosmicBlue,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Text(
+                'Retry',
+                style: AppTheme.bodyMedium.copyWith(
+                  color: AppTheme.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -738,5 +810,193 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildOrderCard(Order order) {
+    final isBuy = order.isBuy;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.spaceDeep,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isBuy
+              ? AppTheme.energyGreen.withOpacity(0.3)
+              : AppTheme.dangerRed.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Header row
+          Row(
+            children: [
+              // Asset info
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _getAssetColor(order.market).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Center(
+                  child: AssetDropdown.buildAssetImage(
+                    _getBaseAsset(order.market),
+                    'crypto',
+                    size: 24,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.market,
+                      style: AppTheme.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          order.side,
+                          style: AppTheme.bodySmall.copyWith(
+                            color: isBuy
+                                ? AppTheme.energyGreen
+                                : AppTheme.dangerRed,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(
+                              order.status,
+                            ).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _getStatusColor(
+                                order.status,
+                              ).withOpacity(0.3),
+                            ),
+                          ),
+                          child: Text(
+                            order.status,
+                            style: AppTheme.bodySmall.copyWith(
+                              color: _getStatusColor(order.status),
+                              fontWeight: FontWeight.w500,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Order amount
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '\$${order.totalValue.toStringAsFixed(2)}',
+                    style: AppTheme.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    '${order.filledQtyValue.toStringAsFixed(4)} ${_getBaseAsset(order.market)}',
+                    style: AppTheme.bodySmall.copyWith(color: AppTheme.gray400),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Order details
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.spaceDark.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                _buildDetailRow('Type:', order.type),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  'Price:',
+                  '\$${order.priceValue.toStringAsFixed(4)}',
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  'Average Price:',
+                  '\$${order.averagePriceValue.toStringAsFixed(4)}',
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  'Quantity:',
+                  '${order.qtyValue.toStringAsFixed(4)} ${_getBaseAsset(order.market)}',
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  'Filled:',
+                  '${order.filledQtyValue.toStringAsFixed(4)} ${_getBaseAsset(order.market)}',
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  'Fee:',
+                  '\$${order.payedFeeValue.toStringAsFixed(4)}',
+                ),
+                const SizedBox(height: 8),
+                _buildDetailRow(
+                  'Time:',
+                  _formatDateTime(order.createdAtDateTime),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 400.ms).slideX(begin: 0.2);
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'FILLED':
+        return AppTheme.energyGreen;
+      case 'CANCELLED':
+        return AppTheme.dangerRed;
+      case 'PARTIALLY_FILLED':
+        return AppTheme.starYellow;
+      case 'PENDING':
+        return AppTheme.cosmicBlue;
+      default:
+        return AppTheme.gray400;
+    }
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
   }
 }
