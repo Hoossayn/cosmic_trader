@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/market_models.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -122,14 +123,18 @@ class MarketUtils {
     return '${percentage >= 0 ? '+' : ''}${percentage.toStringAsFixed(2)}%';
   }
 
-  /// Formats price with appropriate precision
+  /// Formats price with appropriate precision and comma separators
   static String formatPrice(double price) {
+    final numberFormat = NumberFormat('#,##0');
+    final decimalFormat = NumberFormat('#,##0.00');
+    final highPrecisionFormat = NumberFormat('#,##0.0000');
+
     if (price >= 1000) {
-      return '\$${price.toStringAsFixed(0)}';
+      return '\$${numberFormat.format(price)}';
     } else if (price >= 1) {
-      return '\$${price.toStringAsFixed(2)}';
+      return '\$${decimalFormat.format(price)}';
     } else {
-      return '\$${price.toStringAsFixed(4)}';
+      return '\$${highPrecisionFormat.format(price)}';
     }
   }
 }

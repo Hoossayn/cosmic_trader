@@ -194,8 +194,8 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTitle(),
-          const SizedBox(height: 24),
+          //_buildTitle(),
+          //const SizedBox(height: 24),
           _buildAssetSelection(),
           const SizedBox(height: 24),
           _buildDirectionSelection(),
@@ -587,7 +587,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
                 Text(
                   '\$${selectedMarket.price.toStringAsFixed(selectedMarket.price >= 1000 ? 0 : 4)}',
                   style: AppTheme.bodyMedium.copyWith(
-                    color: AppTheme.cosmicBlue,
+                    //color: AppTheme.cosmicBlue,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
