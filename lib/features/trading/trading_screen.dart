@@ -113,7 +113,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
           Row(
             children: [
               GestureDetector(
-                onTap: () => context.push('/open-trades'),
+                onTap: () => context.push('/practice'),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -130,13 +130,13 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(
-                        Icons.list_alt,
+                        Icons.school,
                         color: AppTheme.cosmicBlue,
                         size: 16,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Open Trades',
+                        'Practice Mode',
                         style: AppTheme.bodySmall.copyWith(
                           color: AppTheme.cosmicBlue,
                           fontWeight: FontWeight.w600,
@@ -148,7 +148,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () => context.push('/practice'),
+                onTap: () => context.push('/open-trades'),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -165,13 +165,13 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(
-                        Icons.school,
+                        Icons.list_alt,
                         color: AppTheme.energyGreen,
                         size: 16,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Practice Mode',
+                        'Open Trades',
                         style: AppTheme.bodySmall.copyWith(
                           color: AppTheme.energyGreen,
                           fontWeight: FontWeight.w600,

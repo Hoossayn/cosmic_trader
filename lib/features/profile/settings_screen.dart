@@ -48,18 +48,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           GestureDetector(
             onTap: () => context.pop(),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.spaceDeep,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios,
-                color: AppTheme.white,
-                size: 20,
-              ),
+            child: const Icon(
+              Icons.arrow_back_ios,
+              color: AppTheme.white,
+              size: 20,
             ),
           ),
           const SizedBox(width: 16),

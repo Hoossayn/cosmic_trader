@@ -125,12 +125,12 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20,0,20,20),
       child: Row(
         children: [
           IconButton(
             onPressed: () => context.pop(),
-            icon: const Icon(Icons.arrow_back, color: AppTheme.white),
+            icon: const Icon(Icons.arrow_back_ios, color: AppTheme.white),
           ),
           const SizedBox(width: 8),
           Text('Trading Activity', style: AppTheme.heading2),
