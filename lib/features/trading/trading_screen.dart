@@ -9,6 +9,7 @@ import '../../shared/widgets/asset_dropdown.dart';
 import '../../shared/widgets/direction_selector.dart';
 import '../../shared/widgets/amount_selector.dart';
 import '../../shared/widgets/leverage_selector.dart';
+import '../../shared/widgets/order_type_selector.dart';
 import '../../shared/providers/api_providers.dart';
 import '../../shared/models/market_models.dart';
 
@@ -26,6 +27,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
 
   String _selectedAsset = 'BTC-USD'; // Default to Bitcoin
   String _selectedDirection = 'LONG';
+  String _selectedOrderType = 'MARKET'; // Default to Market order
   double _selectedAmount = 50.0;
   double _selectedLeverage = 2.0;
   bool _isTrading = false;
@@ -141,8 +143,8 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          //_buildTitle(),
-          //const SizedBox(height: 24),
+          _buildOrderTypeSelection(),
+          const SizedBox(height: 24),
           _buildAssetSelection(),
           const SizedBox(height: 24),
           _buildDirectionSelection(),
@@ -243,6 +245,25 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
           onDirectionChanged: (direction) {
             setState(() {
               _selectedDirection = direction;
+            });
+            //Vibration.vibrate(duration: 50);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOrderTypeSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Order Type', style: AppTheme.heading3),
+        const SizedBox(height: 16),
+        OrderTypeSelector(
+          selectedOrderType: _selectedOrderType,
+          onOrderTypeChanged: (orderType) {
+            setState(() {
+              _selectedOrderType = orderType;
             });
             //Vibration.vibrate(duration: 50);
           },
@@ -478,6 +499,25 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
+                'Order Type:',
+                style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+              ),
+              Text(
+                _selectedOrderType,
+                style: AppTheme.bodyMedium.copyWith(
+                  color: _selectedOrderType == 'MARKET'
+                      ? AppTheme.energyGreen
+                      : AppTheme.cosmicBlue,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
                 'Amount:',
                 style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
               ),
@@ -612,7 +652,9 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
                   ),
                 const SizedBox(width: 12),
                 Text(
-                  _isTrading ? 'Placing Trade...' : 'Place Market Order',
+                  _isTrading
+                      ? 'Placing Trade...'
+                      : 'Place ${_selectedOrderType == 'MARKET' ? 'Market' : 'Limit'} Order',
                   style: AppTheme.heading3.copyWith(
                     color: _isTrading ? AppTheme.white : AppTheme.spaceDark,
                   ),
