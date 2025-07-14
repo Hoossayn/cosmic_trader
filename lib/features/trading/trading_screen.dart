@@ -12,6 +12,7 @@ import '../../shared/widgets/leverage_selector.dart';
 import '../../shared/widgets/order_type_selector.dart';
 import '../../shared/providers/api_providers.dart';
 import '../../shared/models/market_models.dart';
+import '../../shared/utils/market_utils.dart';
 
 class TradingScreen extends ConsumerStatefulWidget {
   const TradingScreen({super.key});
@@ -28,10 +29,13 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
   String _selectedAsset = 'BTC-USD'; // Default to Bitcoin
   String _selectedDirection = 'LONG';
   String _selectedOrderType = 'MARKET'; // Default to Market order
-  double _selectedAmount = 50.0;
-  double _selectedLeverage = 2.0;
+  double _selectedAmount = 25.0;
+  double _selectedLeverage = 10.0;
   bool _isTrading = false;
   bool _showCustomAmountInput = false;
+  bool _showRiskManagement = false;
+  double? _stopLoss;
+  double? _takeProfit;
   final TextEditingController _customAmountController = TextEditingController();
 
   @override
@@ -60,7 +64,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Place Trade', style: AppTheme.heading2),
+        title: Text('Place Order', style: AppTheme.heading2),
         backgroundColor: AppTheme.spaceDark,
         elevation: 0,
         leading: IconButton(
@@ -152,6 +156,8 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
           _buildAmountSelection(),
           const SizedBox(height: 24),
           _buildLeverageSelection(),
+          const SizedBox(height: 24),
+          _buildRiskManagementSection(),
           const SizedBox(height: 32),
           _buildTradePreview(markets),
           const SizedBox(height: 32),
@@ -442,6 +448,141 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
     );
   }
 
+  Widget _buildRiskManagementSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.spaceDeep,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.only(left: 8),
+            title: Text(
+              'Risk Management',
+              style: AppTheme.heading3.copyWith(fontWeight: FontWeight.w600),
+            ),
+            trailing: IconButton(
+              icon: Icon(
+                _showRiskManagement
+                    ? Icons.keyboard_arrow_up
+                    : Icons.keyboard_arrow_down,
+                color: AppTheme.white,
+              ),
+              onPressed: () {
+                setState(() {
+                  _showRiskManagement = !_showRiskManagement;
+                });
+              },
+            ),
+          ),
+          if (_showRiskManagement) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                children: [
+                  // Stop Loss
+                  TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Stop Loss',
+                      hintText: 'Enter stop loss price',
+                      prefixText: '\$',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppTheme.cosmicBlue.withOpacity(0.3),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppTheme.cosmicBlue.withOpacity(0.3),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppTheme.cosmicBlue,
+                        ),
+                      ),
+                      labelStyle: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.gray400,
+                      ),
+                      hintStyle: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.gray400,
+                      ),
+                      filled: true,
+                      fillColor: AppTheme.spaceDark,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    style: AppTheme.bodyMedium.copyWith(color: AppTheme.white),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      setState(() {
+                        _stopLoss = double.tryParse(value);
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Take Profit
+                  TextField(
+                    decoration: InputDecoration(
+                      labelText: 'Take Profit',
+                      hintText: 'Enter take profit price',
+                      prefixText: '\$',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppTheme.cosmicBlue.withOpacity(0.3),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppTheme.cosmicBlue.withOpacity(0.3),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppTheme.cosmicBlue,
+                        ),
+                      ),
+                      labelStyle: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.gray400,
+                      ),
+                      hintStyle: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.gray400,
+                      ),
+                      filled: true,
+                      fillColor: AppTheme.spaceDark,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    style: AppTheme.bodyMedium.copyWith(color: AppTheme.white),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      setState(() {
+                        _takeProfit = double.tryParse(value);
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildTradePreview(List<Market> markets) {
     // Find the selected market data
     final selectedMarket = markets
@@ -575,6 +716,44 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
                   '\$${selectedMarket.price.toStringAsFixed(selectedMarket.price >= 1000 ? 0 : 4)}',
                   style: AppTheme.bodyMedium.copyWith(
                     //color: AppTheme.cosmicBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_stopLoss != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Stop Loss:',
+                  style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+                ),
+                Text(
+                  MarketUtils.formatPrice(_stopLoss!),
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: AppTheme.dangerRed,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (_takeProfit != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Take Profit:',
+                  style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+                ),
+                Text(
+                  MarketUtils.formatPrice(_takeProfit!),
+                  style: AppTheme.bodyMedium.copyWith(
+                    color: AppTheme.energyGreen,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
