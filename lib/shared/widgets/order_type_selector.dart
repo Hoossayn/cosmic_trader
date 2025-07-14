@@ -34,7 +34,7 @@ class OrderTypeSelector extends StatelessWidget {
             label: 'Limit',
             subtitle: 'Set your price',
             icon: Icons.schedule,
-            color: AppTheme.cosmicBlue,
+            color: AppTheme.starYellow,
             isSelected: selectedOrderType == 'LIMIT',
             onTap: () => onOrderTypeChanged('LIMIT'),
           ),
