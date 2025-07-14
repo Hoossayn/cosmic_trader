@@ -27,6 +27,9 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
 
   late TabController _tabController;
 
+  // Track expanded state for each position card
+  final Set<String> _expandedPositions = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -125,7 +128,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20,0,20,20),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
       child: Row(
         children: [
           IconButton(
@@ -472,6 +475,9 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
   Widget _buildPositionCard(Position position) {
     final isProfitable = position.isProfitable;
     final roiPercent = position.roiPercentage;
+    final positionKey =
+        '${position.market}_${position.side}_${position.createdAtDateTime.millisecondsSinceEpoch}';
+    final isExpanded = _expandedPositions.contains(positionKey);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -486,7 +492,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
       ),
       child: Column(
         children: [
-          // Header row
+          // Header row - always visible
           Row(
             children: [
               // Asset info
@@ -534,7 +540,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '${isProfitable ? '+' : ''}\$${position.unrealisedPnlValue.toStringAsFixed(2)}',
+                    '${isProfitable ? '+' : ''}${MarketUtils.formatPrice(position.unrealisedPnlValue)}',
                     style: AppTheme.bodyMedium.copyWith(
                       color: isProfitable
                           ? AppTheme.energyGreen
@@ -552,130 +558,161 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
                   ),
                 ],
               ),
+
+              // Expand/Collapse button
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (isExpanded) {
+                      _expandedPositions.remove(positionKey);
+                    } else {
+                      _expandedPositions.add(positionKey);
+                    }
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gray400.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: AppTheme.gray400,
+                    size: 20,
+                  ),
+                ),
+              ),
             ],
           ),
 
-          const SizedBox(height: 16),
+          // Expandable content - only show when expanded
+          if (isExpanded) ...[
+            const SizedBox(height: 16),
 
-          // Position details
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.spaceDark.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
+            // Position details
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.spaceDark.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  _buildDetailRow(
+                    'Size:',
+                    '${position.sizeValue.toStringAsFixed(2)} ${_getBaseAsset(position.market)}',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Value:',
+                    MarketUtils.formatPrice(position.valueValue),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Entry Price:',
+                    MarketUtils.formatPrice(position.openPriceValue),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Market Price:',
+                    MarketUtils.formatPrice(position.markPriceValue),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Liquidation Price:',
+                    MarketUtils.formatPrice(position.liquidationPriceValue),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Margin:',
+                    MarketUtils.formatPrice(position.marginValue),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Time Open:',
+                    _formatDuration(
+                      DateTime.now().difference(position.createdAtDateTime),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Column(
+
+            const SizedBox(height: 16),
+
+            // Action buttons
+            Row(
               children: [
-                _buildDetailRow(
-                  'Size:',
-                  '${position.sizeValue.toStringAsFixed(2)} ${_getBaseAsset(position.market)}',
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _editPosition(position),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cosmicBlue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.cosmicBlue),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.edit,
+                            color: AppTheme.cosmicBlue,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Edit',
+                            style: AppTheme.bodyMedium.copyWith(
+                              color: AppTheme.cosmicBlue,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Value:',
-                  '\$${position.valueValue.toStringAsFixed(2)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Entry Price:',
-                  '\$${position.openPriceValue.toStringAsFixed(4)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Market Price:',
-                  '\$${position.markPriceValue.toStringAsFixed(4)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Liquidation Price:',
-                  '\$${position.liquidationPriceValue.toStringAsFixed(4)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Margin:',
-                  '\$${position.marginValue.toStringAsFixed(2)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Time Open:',
-                  _formatDuration(
-                    DateTime.now().difference(position.createdAtDateTime),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _closePosition(position),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.dangerRed.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.dangerRed),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.close,
+                            color: AppTheme.dangerRed,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Close',
+                            style: AppTheme.bodyMedium.copyWith(
+                              color: AppTheme.dangerRed,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Action buttons
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _editPosition(position),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cosmicBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.cosmicBlue),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.edit,
-                          color: AppTheme.cosmicBlue,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Edit',
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: AppTheme.cosmicBlue,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _closePosition(position),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerRed.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.dangerRed),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.close,
-                          color: AppTheme.dangerRed,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Close',
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: AppTheme.dangerRed,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          ],
         ],
       ),
     ).animate().fadeIn(duration: 400.ms).slideX(begin: 0.2);
