@@ -33,7 +33,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/trading',
             name: 'trading',
-            builder: (context, state) => const TradingScreen(),
+            builder: (context, state) => const OpenTradesScreen(),
           ),
           GoRoute(
             path: '/leaderboard',
@@ -50,8 +50,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Full-screen routes (without bottom navigation)
       GoRoute(
-        path: '/open-trades',
-        builder: (context, state) => const OpenTradesScreen(),
+        path: '/place-trade',
+        name: 'place-trade',
+        builder: (context, state) => const TradingScreen(),
       ),
       GoRoute(
         path: '/practice',

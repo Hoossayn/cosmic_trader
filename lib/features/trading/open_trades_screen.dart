@@ -86,21 +86,37 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     final error = ref.watch(_errorProvider);
 
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildTabBar(),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildOpenTradesTab(positions, isLoading, error),
-                  _buildOrderHistoryTab(),
-                ],
-              ),
+      appBar: AppBar(
+        title: Text('Current Trades', style: AppTheme.heading2),
+        backgroundColor: AppTheme.spaceDark,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+      ),
+      body: Column(
+        children: [
+          _buildTabBar(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildOpenTradesTab(positions, isLoading, error),
+                _buildOrderHistoryTab(),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/place-trade'),
+        backgroundColor: AppTheme.energyGreen,
+        foregroundColor: AppTheme.spaceDark,
+        icon: const Icon(Icons.add_chart),
+        label: Text(
+          'New Trade',
+          style: AppTheme.bodyMedium.copyWith(
+            color: AppTheme.spaceDark,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
@@ -126,27 +142,11 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     return _buildPositionsList(positions);
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: () => context.pop(),
-            icon: const Icon(Icons.arrow_back_ios, color: AppTheme.white),
-          ),
-          const SizedBox(width: 8),
-          Text('Trading Activity', style: AppTheme.heading2),
-        ],
-      ),
-    );
-  }
-
   Widget _buildTabBar() {
     final positions = ref.watch(_positionsStateProvider);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       decoration: BoxDecoration(
         color: AppTheme.spaceDeep,
         borderRadius: BorderRadius.circular(12),

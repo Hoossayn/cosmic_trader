@@ -578,7 +578,7 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
           GestureDetector(
             onTap: () {
               //Vibration.vibrate(duration: 100);
-              context.go('/trading');
+              context.push('/place-trade');
             },
             child: Container(
               width: double.infinity,

@@ -57,25 +57,57 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
     final marketsAsync = ref.watch(marketsProvider);
 
     return Scaffold(
+      appBar: AppBar(
+        title: Text('Place Trade', style: AppTheme.heading2),
+        backgroundColor: AppTheme.spaceDark,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () => context.pop(),
+          icon: const Icon(Icons.arrow_back_ios, color: AppTheme.white),
+        ),
+        actions: [
+          GestureDetector(
+            onTap: () => context.push('/practice'),
+            child: Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.energyGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppTheme.energyGreen.withOpacity(0.3),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.school,
+                    color: AppTheme.energyGreen,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Practice Mode',
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.energyGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: marketsAsync.when(
-                    data: (markets) => _buildTradingContent(markets),
-                    loading: () => const Center(
-                      child: CircularProgressIndicator(
-                        color: AppTheme.energyGreen,
-                      ),
-                    ),
-                    error: (err, stack) => _buildErrorContent(),
-                  ),
-                ),
-              ],
+          marketsAsync.when(
+            data: (markets) => _buildTradingContent(markets),
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: AppTheme.energyGreen),
             ),
+            error: (err, stack) => _buildErrorContent(),
           ),
 
           // Confetti overlay
@@ -83,7 +115,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
             alignment: Alignment.topCenter,
             child: ConfettiWidget(
               confettiController: _confettiController,
-              blastDirection: 1.5708, 
+              blastDirection: 1.5708,
               blastDirectionality: BlastDirectionality.explosive,
               maxBlastForce: 20,
               minBlastForce: 5,
@@ -97,91 +129,6 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
                 AppTheme.warningOrange,
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('Trade', style: AppTheme.heading2),
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => context.push('/practice'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cosmicBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppTheme.cosmicBlue.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.school,
-                        color: AppTheme.cosmicBlue,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Practice Mode',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.cosmicBlue,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => context.push('/open-trades'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.energyGreen.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppTheme.energyGreen.withOpacity(0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.list_alt,
-                        color: AppTheme.energyGreen,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Open Trades',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.energyGreen,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
           ),
         ],
       ),

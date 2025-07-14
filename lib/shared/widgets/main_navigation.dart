@@ -66,7 +66,7 @@ class _MainNavigationState extends State<MainNavigation> {
                 ),
                 _NavItem(
                   icon: Icons.trending_up,
-                  label: 'Trade',
+                  label: 'Trades',
                   isSelected: _currentIndex == 1,
                   onTap: () => _onTap(1, '/trading'),
                 ),
