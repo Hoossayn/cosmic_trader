@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:secure_store/secure_store.dart';
+import 'package:wallet_kit/secure_store.dart';
+import 'package:wallet_kit/wallet_kit.dart';
+import 'package:wallet_kit/wallet_state/wallet_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/xp_progress_bar.dart';
 import '../../shared/widgets/planet_widget.dart';
@@ -27,6 +31,7 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
   @override
   void initState() {
     super.initState();
+
     _pulseController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
@@ -36,6 +41,45 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
       duration: const Duration(seconds: 20),
       vsync: this,
     )..repeat();
+
+    // Initialize wallet after the widget tree is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeWallet();
+    });
+  }
+
+  Future<void> _initializeWallet() async {
+    final hasWallets = ref.read(
+      walletsProvider.select((v) => v.wallets.isNotEmpty),
+    );
+    if (!hasWallets) {
+      try {
+        final secureStore = await getAvailableSecureStore(
+          getPassword: () async {
+            // Your password prompt implementation
+            return await showDialog<String>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text('Enter Password'),
+                content: TextField(
+                  obscureText: true,
+                  onSubmitted: (value) => Navigator.pop(context, value),
+                ),
+              ),
+            );
+          },
+        );
+        ref.read(walletsProvider.notifier).addWallet(secureStore: secureStore);
+      } catch (e) {
+        // Handle wallet initialization error if needed
+        debugPrint('Wallet initialization error: $e');
+      }
+    }
+    final address = ref.watch(walletsProvider.select((v) => v.selectedAccount?.address));
+    final selectedAccount = ref.watch(walletsProvider.select((value) => value.selectedAccount));
+    final walletId = selectedAccount?.walletId;
+    final accountId = selectedAccount?.id;
+    print('Account address $address');
   }
 
   @override
@@ -103,7 +147,9 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
                     const SizedBox(height: 8),
                     Text(
                       'Your trading performance shapes your world.',
-                      style: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: AppTheme.gray400,
+                      ),
                       textAlign: TextAlign.center,
                     ),
 
@@ -265,7 +311,6 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
           ),
 
           // Planet info
-
         ],
       ),
     );

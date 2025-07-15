@@ -8,6 +8,7 @@ import '../features/practice/practice_trading_screen.dart';
 import '../features/leaderboard/leaderboard_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/profile/settings_screen.dart';
+import '../features/profile/wallet_screen.dart';
 import '../shared/widgets/main_navigation.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -63,6 +64,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         name: 'settings',
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/wallet',
+        name: 'wallet',
+        builder: (context, state) => const WalletScreen(),
       ),
     ],
   );

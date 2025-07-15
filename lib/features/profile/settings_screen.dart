@@ -95,7 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'icon': Icons.account_balance_wallet_outlined,
         'hasArrow': true,
         'onTap': () {
-          // TODO: Navigate to wallet settings
+          context.push('/wallet');
         },
       },
     ];
