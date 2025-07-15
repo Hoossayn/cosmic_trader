@@ -92,3 +92,67 @@ Map<String, dynamic> _$OrderPaginationToJson(OrderPagination instance) =>
       'cursor': instance.cursor,
       'count': instance.count,
     };
+
+PlaceOrderRequest _$PlaceOrderRequestFromJson(Map<String, dynamic> json) =>
+    PlaceOrderRequest(
+      market: json['market'] as String,
+      orderType: json['order_type'] as String,
+      side: json['side'] as String?,
+      amount: (json['amount'] as num?)?.toDouble(),
+      usdValue: (json['usd_value'] as num?)?.toDouble(),
+      price: (json['price'] as num?)?.toDouble(),
+      leverage: (json['leverage'] as num?)?.toInt(),
+      takeProfitPrice: (json['take_profit_price'] as num?)?.toDouble(),
+      stopLossPrice: (json['stop_loss_price'] as num?)?.toDouble(),
+    );
+
+Map<String, dynamic> _$PlaceOrderRequestToJson(PlaceOrderRequest instance) =>
+    <String, dynamic>{
+      'market': instance.market,
+      'order_type': instance.orderType,
+      'side': instance.side,
+      'amount': instance.amount,
+      'usd_value': instance.usdValue,
+      'price': instance.price,
+      'leverage': instance.leverage,
+      'take_profit_price': instance.takeProfitPrice,
+      'stop_loss_price': instance.stopLossPrice,
+    };
+
+PlaceOrderResponse _$PlaceOrderResponseFromJson(Map<String, dynamic> json) =>
+    PlaceOrderResponse(
+      orderId: (json['order_id'] as num?)?.toInt(),
+      externalId: json['external_id'] as String?,
+      takeProfit: json['take_profit'] == null
+          ? null
+          : OrderRiskManagementResult.fromJson(
+              json['take_profit'] as Map<String, dynamic>),
+      stopLoss: json['stop_loss'] == null
+          ? null
+          : OrderRiskManagementResult.fromJson(
+              json['stop_loss'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$PlaceOrderResponseToJson(PlaceOrderResponse instance) =>
+    <String, dynamic>{
+      'order_id': instance.orderId,
+      'external_id': instance.externalId,
+      'take_profit': instance.takeProfit,
+      'stop_loss': instance.stopLoss,
+    };
+
+OrderRiskManagementResult _$OrderRiskManagementResultFromJson(
+        Map<String, dynamic> json) =>
+    OrderRiskManagementResult(
+      price: json['price'] as String?,
+      success: json['success'] as bool?,
+      error: json['error'] as String?,
+    );
+
+Map<String, dynamic> _$OrderRiskManagementResultToJson(
+        OrderRiskManagementResult instance) =>
+    <String, dynamic>{
+      'price': instance.price,
+      'success': instance.success,
+      'error': instance.error,
+    };

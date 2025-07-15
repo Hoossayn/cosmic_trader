@@ -8,7 +8,6 @@ import '../../shared/models/position_models.dart';
 import '../../shared/models/order_models.dart';
 import '../../shared/providers/api_providers.dart';
 import '../../shared/widgets/asset_dropdown.dart';
-import '../../shared/widgets/positions_summary_card.dart';
 import '../../shared/utils/market_utils.dart';
 
 class OpenTradesScreen extends ConsumerStatefulWidget {
@@ -20,70 +19,28 @@ class OpenTradesScreen extends ConsumerStatefulWidget {
 
 class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     with SingleTickerProviderStateMixin {
-  Timer? _refreshTimer;
-  late StateProvider<List<Position>> _positionsStateProvider;
-  late StateProvider<bool> _isLoadingProvider;
-  late StateProvider<String?> _errorProvider;
-
   late TabController _tabController;
 
-  // Track expanded state for each position card
-  final Set<String> _expandedPositions = <String>{};
+  // Track expanded state for each position card - separate for each tab
+  final Set<String> _expandedOpenPositions = <String>{};
+  final Set<String> _expandedClosedPositions = <String>{};
 
   @override
   void initState() {
     super.initState();
-
     _tabController = TabController(length: 2, vsync: this);
-
-    _positionsStateProvider = StateProvider<List<Position>>((ref) => []);
-    _isLoadingProvider = StateProvider<bool>((ref) => true);
-    _errorProvider = StateProvider<String?>((ref) => null);
-
-    // Start fetching data immediately
-    _fetchPositions();
-
-    // Set up periodic refresh only while this screen is active
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) {
-        _fetchPositions();
-      }
-    });
   }
 
   @override
   void dispose() {
-    // Clean up timer when screen is disposed
-    _refreshTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchPositions() async {
-    if (!mounted) return;
-
-    try {
-      final positionsService = ref.read(positionsApiServiceProvider);
-      final positions = await positionsService.getUserPositions();
-
-      if (mounted) {
-        ref.read(_positionsStateProvider.notifier).state = positions;
-        ref.read(_isLoadingProvider.notifier).state = false;
-        ref.read(_errorProvider.notifier).state = null;
-      }
-    } catch (error) {
-      if (mounted) {
-        ref.read(_isLoadingProvider.notifier).state = false;
-        ref.read(_errorProvider.notifier).state = error.toString();
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final positions = ref.watch(_positionsStateProvider);
-    final isLoading = ref.watch(_isLoadingProvider);
-    final error = ref.watch(_errorProvider);
+    final openPositionsAsync = ref.watch(openPositionsProvider);
+    final closedPositionsAsync = ref.watch(closedPositionsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -94,13 +51,13 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
       ),
       body: Column(
         children: [
-          _buildTabBar(),
+          _buildTabBar(openPositionsAsync),
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildOpenTradesTab(positions, isLoading, error),
-                _buildOrderHistoryTab(),
+                _buildOpenTradesTab(openPositionsAsync),
+                _buildOrderHistoryTab(closedPositionsAsync),
               ],
             ),
           ),
@@ -139,12 +96,10 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
       return _buildEmptyState();
     }
 
-    return _buildPositionsList(positions);
+    return _buildPositionsList(positions, isOpenTab: true);
   }
 
-  Widget _buildTabBar() {
-    final positions = ref.watch(_positionsStateProvider);
-
+  Widget _buildTabBar(AsyncValue<List<Position>> openPositionsAsync) {
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       decoration: BoxDecoration(
@@ -185,7 +140,11 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
                     ),
                   ),
                   child: Text(
-                    '${positions.length}',
+                    openPositionsAsync.when(
+                      data: (positions) => '${positions.length}',
+                      loading: () => '0',
+                      error: (_, __) => '0',
+                    ),
                     style: AppTheme.bodySmall.copyWith(
                       color: AppTheme.energyGreen,
                       fontWeight: FontWeight.w600,
@@ -211,19 +170,21 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     );
   }
 
-  Widget _buildOpenTradesTab(
-    List<Position> positions,
-    bool isLoading,
-    String? error,
-  ) {
-    return _buildContent(positions, isLoading, error);
+  Widget _buildOpenTradesTab(AsyncValue<List<Position>> openPositionsAsync) {
+    return openPositionsAsync.when(
+      data: (positions) => _buildContent(positions, false, null),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => _buildErrorState(error.toString()),
+    );
   }
 
-  Widget _buildOrderHistoryTab() {
-    final orderHistoryAsync = ref.watch(orderHistoryProvider);
-
-    return orderHistoryAsync.when(
-      data: (orders) => _buildOrderHistoryContent(orders),
+  Widget _buildOrderHistoryTab(
+    AsyncValue<List<Position>> closedPositionsAsync,
+  ) {
+    return closedPositionsAsync.when(
+      data: (positions) => positions.isEmpty
+          ? _buildOrderHistoryEmptyState()
+          : _buildPositionsList(positions, isOpenTab: false),
       loading: () => const Center(
         child: CircularProgressIndicator(color: AppTheme.energyGreen),
       ),
@@ -231,29 +192,6 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     );
   }
 
-  Widget _buildOrderHistoryContent(List<Order> orders) {
-    if (orders.isEmpty) {
-      return _buildOrderHistoryEmptyState();
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(orderHistoryProvider);
-        await Future.delayed(const Duration(milliseconds: 500));
-      },
-      child: ListView.builder(
-        padding: const EdgeInsets.all(20),
-        itemCount: orders.length,
-        itemBuilder: (context, index) {
-          final order = orders[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: _buildOrderCard(order),
-          );
-        },
-      ),
-    );
-  }
 
   Widget _buildOrderHistoryEmptyState() {
     return Center(
@@ -330,7 +268,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
           ),
           const SizedBox(height: 32),
           GestureDetector(
-            onTap: () => ref.invalidate(orderHistoryProvider),
+            onTap: () => ref.invalidate(openPositionsProvider),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
@@ -430,7 +368,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
           ),
           const SizedBox(height: 32),
           GestureDetector(
-            onTap: () => _fetchPositions(),
+            onTap: () => ref.invalidate(openPositionsProvider),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
@@ -451,10 +389,17 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     );
   }
 
-  Widget _buildPositionsList(List<Position> positions) {
+  Widget _buildPositionsList(
+    List<Position> positions, {
+    required bool isOpenTab,
+  }) {
     return RefreshIndicator(
       onRefresh: () async {
-        await _fetchPositions();
+        if (isOpenTab) {
+          ref.invalidate(openPositionsProvider);
+        } else {
+          ref.invalidate(closedPositionsProvider);
+        }
         // Small delay to show refresh action
         await Future.delayed(const Duration(milliseconds: 500));
       },
@@ -465,19 +410,22 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
           final position = positions[index];
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: _buildPositionCard(position),
+            child: _buildPositionCard(position, isOpenTab: isOpenTab),
           );
         },
       ),
     );
   }
 
-  Widget _buildPositionCard(Position position) {
+  Widget _buildPositionCard(Position position, {required bool isOpenTab}) {
     final isProfitable = position.isProfitable;
     final roiPercent = position.roiPercentage;
     final positionKey =
-        '${position.market}_${position.side}_${position.createdAtDateTime.millisecondsSinceEpoch}';
-    final isExpanded = _expandedPositions.contains(positionKey);
+        '${position.market ?? 'unknown'}_${position.side ?? 'unknown'}_${position.createdAtDateTime?.millisecondsSinceEpoch ?? 0}';
+    final expandedSet = isOpenTab
+        ? _expandedOpenPositions
+        : _expandedClosedPositions;
+    final isExpanded = expandedSet.contains(positionKey);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -500,12 +448,12 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: _getAssetColor(position.market).withOpacity(0.1),
+                  color: _getAssetColor(position.market ?? '').withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Center(
                   child: AssetDropdown.buildAssetImage(
-                    _getBaseAsset(position.market),
+                    _getBaseAsset(position.market ?? ''),
                     'crypto', // Default category for positions
                     size: 24,
                   ),
@@ -517,7 +465,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      position.market,
+                      position.market ?? 'Unknown',
                       style: AppTheme.bodyMedium.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -565,9 +513,9 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
                 onTap: () {
                   setState(() {
                     if (isExpanded) {
-                      _expandedPositions.remove(positionKey);
+                      expandedSet.remove(positionKey);
                     } else {
-                      _expandedPositions.add(positionKey);
+                      expandedSet.add(positionKey);
                     }
                   });
                 },
@@ -604,7 +552,7 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
                 children: [
                   _buildDetailRow(
                     'Size:',
-                    '${position.sizeValue.toStringAsFixed(2)} ${_getBaseAsset(position.market)}',
+                    '${position.sizeValue.toStringAsFixed(2)} ${_getBaseAsset(position.market ?? '')}',
                   ),
                   const SizedBox(height: 8),
                   _buildDetailRow(
@@ -627,15 +575,17 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
                     MarketUtils.formatPrice(position.liquidationPriceValue),
                   ),
                   const SizedBox(height: 8),
-                  _buildDetailRow(
+                  /*   _buildDetailRow(
                     'Margin:',
                     MarketUtils.formatPrice(position.marginValue),
-                  ),
+                  ),*/
                   const SizedBox(height: 8),
                   _buildDetailRow(
                     'Time Open:',
                     _formatDuration(
-                      DateTime.now().difference(position.createdAtDateTime),
+                      DateTime.now().difference(
+                        position.createdAtDateTime ?? DateTime.now(),
+                      ),
                     ),
                   ),
                 ],

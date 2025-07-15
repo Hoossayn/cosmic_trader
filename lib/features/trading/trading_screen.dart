@@ -12,6 +12,7 @@ import '../../shared/widgets/leverage_selector.dart';
 import '../../shared/widgets/order_type_selector.dart';
 import '../../shared/providers/api_providers.dart';
 import '../../shared/models/market_models.dart';
+import '../../shared/models/order_models.dart';
 import '../../shared/utils/market_utils.dart';
 
 class TradingScreen extends ConsumerStatefulWidget {
@@ -27,7 +28,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
   late AnimationController _pulseController;
 
   String _selectedAsset = 'BTC-USD'; // Default to Bitcoin
-  String _selectedDirection = 'LONG';
+  String _selectedDirection = 'BUY';
   String _selectedOrderType = 'MARKET'; // Default to Market order
   double _selectedAmount = 25.0;
   double _selectedLeverage = 10.0;
@@ -627,7 +628,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
               Text(
                 _selectedDirection,
                 style: AppTheme.bodyMedium.copyWith(
-                  color: _selectedDirection == 'LONG'
+                  color: _selectedDirection == 'BUY'
                       ? AppTheme.energyGreen
                       : AppTheme.dangerRed,
                   fontWeight: FontWeight.w600,
@@ -857,44 +858,188 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
     // Haptic feedback
     //Vibration.vibrate(duration: 100);
 
-    // Simulate trade execution
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final ordersService = ref.read(ordersApiServiceProvider);
 
-    setState(() {
-      _isTrading = false;
-    });
+      // Create the place order request
+      final request = PlaceOrderRequest(
+        market: _selectedAsset,
+        orderType: _selectedOrderType.toLowerCase(),
+        side: _selectedDirection.toLowerCase(),
+        amount: _selectedAmount,
+        //usdValue: _selectedAmount,
+        price: _selectedOrderType == 'LIMIT' ? _getCurrentMarketPrice() : null,
+        leverage: _selectedLeverage.toInt(),
+        takeProfitPrice: _takeProfit,
+        stopLossPrice: _stopLoss,
+      );
 
-    _pulseController.stop();
+      print('request object ${request.toJson()}');
+      // Place the order
+      final response = await ordersService.placeOrder(request);
 
-    // Show success feedback
-    _confettiController.play();
-    //Vibration.vibrate(duration: 200);
+      setState(() {
+        _isTrading = false;
+      });
 
-    final potentialXP = (_selectedAmount * 0.2).toInt();
+      _pulseController.stop();
 
-    // Show success snackbar
-    if (mounted) {
+      // Show success feedback
+      _confettiController.play();
+      //Vibration.vibrate(duration: 200);
+
+      final potentialXP = (_selectedAmount * 0.2).toInt();
+
+      // Show success snackbar with order details
+      if (mounted) {
+        String message = 'Trade placed successfully! +$potentialXP XP earned!';
+        if (response.orderId != null) {
+          message += '\nOrder ID: ${response.orderId}';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.celebration,
+                  color: AppTheme.starYellow,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppTheme.energyGreen,
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+
+        // Show risk management warnings if any
+        _showRiskManagementWarnings(response);
+
+        // Refresh positions data
+        ref.invalidate(openPositionsProvider);
+      }
+    } catch (e) {
+      setState(() {
+        _isTrading = false;
+      });
+
+      _pulseController.stop();
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: AppTheme.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Failed to place order: ${e.toString()}',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppTheme.dangerRed,
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Gets the current market price for the selected asset
+  double? _getCurrentMarketPrice() {
+    final marketsAsync = ref.read(marketsProvider);
+    return marketsAsync.whenOrNull(
+      data: (markets) {
+        final selectedMarket = markets
+            .where((market) => market.name == _selectedAsset)
+            .firstOrNull;
+        return selectedMarket?.price;
+      },
+    );
+  }
+
+  /// Shows warnings for risk management issues
+  void _showRiskManagementWarnings(PlaceOrderResponse response) {
+    final warnings = <String>[];
+
+    if (response.takeProfit?.success == false) {
+      warnings.add(
+        'Take Profit: ${response.takeProfit?.error ?? 'Failed to set'}',
+      );
+    }
+
+    if (response.stopLoss?.success == false) {
+      warnings.add('Stop Loss: ${response.stopLoss?.error ?? 'Failed to set'}');
+    }
+
+    if (warnings.isNotEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.celebration,
-                color: AppTheme.starYellow,
-                size: 20,
+              Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber,
+                    color: AppTheme.starYellow,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Risk Management Warnings:',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                'Trade placed! +$potentialXP XP earned!',
-                style: AppTheme.bodyMedium.copyWith(
-                  color: AppTheme.white,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(height: 8),
+              ...warnings.map(
+                (warning) => Padding(
+                  padding: const EdgeInsets.only(left: 28),
+                  child: Text(
+                    '• $warning',
+                    style: AppTheme.bodySmall.copyWith(color: AppTheme.white),
+                  ),
                 ),
               ),
             ],
           ),
-          backgroundColor: AppTheme.energyGreen,
-          duration: const Duration(seconds: 3),
+          backgroundColor: AppTheme.warningOrange,
+          duration: const Duration(seconds: 6),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

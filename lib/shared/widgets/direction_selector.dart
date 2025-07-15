@@ -18,25 +18,25 @@ class DirectionSelector extends StatelessWidget {
       children: [
         Expanded(
           child: _DirectionOption(
-            direction: 'LONG',
+            direction: 'BUY',
             label: 'Long',
             subtitle: 'Price goes up',
             icon: Icons.trending_up,
             color: AppTheme.energyGreen,
-            isSelected: selectedDirection == 'LONG',
-            onTap: () => onDirectionChanged('LONG'),
+            isSelected: selectedDirection == 'BUY',
+            onTap: () => onDirectionChanged('BUY'),
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: _DirectionOption(
-            direction: 'SHORT',
+            direction: 'SELL',
             label: 'Short',
             subtitle: 'Price goes down',
             icon: Icons.trending_down,
             color: AppTheme.dangerRed,
-            isSelected: selectedDirection == 'SHORT',
-            onTap: () => onDirectionChanged('SHORT'),
+            isSelected: selectedDirection == 'SELL',
+            onTap: () => onDirectionChanged('SELL'),
           ),
         ),
       ],

@@ -122,3 +122,80 @@ class OrderPagination {
 
   Map<String, dynamic> toJson() => _$OrderPaginationToJson(this);
 }
+
+// Place Order Models
+@JsonSerializable()
+class PlaceOrderRequest {
+  final String market;
+  @JsonKey(name: 'order_type')
+  final String orderType;
+  final String? side;
+  final double? amount;
+  @JsonKey(name: 'usd_value')
+  final double? usdValue;
+  final double? price;
+  final int? leverage;
+  @JsonKey(name: 'take_profit_price')
+  final double? takeProfitPrice;
+  @JsonKey(name: 'stop_loss_price')
+  final double? stopLossPrice;
+
+  const PlaceOrderRequest({
+    required this.market,
+    required this.orderType,
+    this.side,
+    this.amount,
+    this.usdValue,
+    this.price,
+    this.leverage,
+    this.takeProfitPrice,
+    this.stopLossPrice,
+  });
+
+  factory PlaceOrderRequest.fromJson(Map<String, dynamic> json) =>
+      _$PlaceOrderRequestFromJson(json);
+
+  Map<String, dynamic> toJson() => _$PlaceOrderRequestToJson(this);
+}
+
+@JsonSerializable()
+class PlaceOrderResponse {
+  @JsonKey(name: 'order_id')
+  final int? orderId;
+  @JsonKey(name: 'external_id')
+  final String? externalId;
+  @JsonKey(name: 'take_profit')
+  final OrderRiskManagementResult? takeProfit;
+  @JsonKey(name: 'stop_loss')
+  final OrderRiskManagementResult? stopLoss;
+
+  const PlaceOrderResponse({
+    this.orderId,
+    this.externalId,
+    this.takeProfit,
+    this.stopLoss,
+  });
+
+  factory PlaceOrderResponse.fromJson(Map<String, dynamic> json) =>
+      _$PlaceOrderResponseFromJson(json);
+
+  Map<String, dynamic> toJson() => _$PlaceOrderResponseToJson(this);
+}
+
+@JsonSerializable()
+class OrderRiskManagementResult {
+  final String? price;
+  final bool? success;
+  final String? error;
+
+  const OrderRiskManagementResult({
+    this.price,
+    this.success,
+    this.error,
+  });
+
+  factory OrderRiskManagementResult.fromJson(Map<String, dynamic> json) =>
+      _$OrderRiskManagementResultFromJson(json);
+
+  Map<String, dynamic> toJson() => _$OrderRiskManagementResultToJson(this);
+}

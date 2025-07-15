@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:async';
 import '../../core/network/api_client.dart';
 import '../../core/network/market_api_service.dart';
 import '../../core/network/positions_api_service.dart';
@@ -31,199 +30,16 @@ final ordersApiServiceProvider = Provider<OrdersApiService>((ref) {
   return OrdersApiService(apiClient);
 });
 
-// User Positions Provider (primary - cached and efficient)
-final userPositionsProvider = FutureProvider<List<Position>>((ref) async {
+// Open Positions Provider
+final openPositionsProvider = FutureProvider<List<Position>>((ref) async {
   final positionsService = ref.watch(positionsApiServiceProvider);
-  return await positionsService.getUserPositions();
+  return await positionsService.getOpenPositions();
 });
 
-// Manual refresh trigger provider
-final positionsRefreshTriggerProvider = StateProvider<int>((ref) => 0);
-
-// Cached positions provider that responds to manual refresh
-final cachedPositionsProvider = FutureProvider<List<Position>>((ref) async {
-  // Watch the refresh trigger to invalidate cache when needed
-  ref.watch(positionsRefreshTriggerProvider);
-
+// Closed Positions Provider
+final closedPositionsProvider = FutureProvider<List<Position>>((ref) async {
   final positionsService = ref.watch(positionsApiServiceProvider);
-  return await positionsService.getUserPositions();
-});
-
-// Auto-disposable stream provider factory for screen-specific real-time updates
-StreamProvider<List<Position>> createRealTimePositionsProvider() {
-  return StreamProvider<List<Position>>((ref) {
-    final positionsService = ref.watch(positionsApiServiceProvider);
-
-    final controller = StreamController<List<Position>>();
-    Timer? autoRefreshTimer;
-    List<Position>? cachedPositions;
-    bool isInitialLoad = true;
-
-    Future<void> fetchAndUpdate() async {
-      try {
-        final positions = await positionsService.getUserPositions();
-        cachedPositions = positions;
-
-        if (!controller.isClosed) {
-          controller.add(positions);
-        }
-
-        isInitialLoad = false;
-      } catch (error) {
-        // On error, emit cached data if available, otherwise emit error
-        if (cachedPositions != null && !controller.isClosed) {
-          controller.add(cachedPositions!);
-        } else if (!controller.isClosed) {
-          controller.addError(error);
-        }
-      }
-    }
-
-    // Listen to manual refresh trigger
-    final refreshTriggerSubscription = ref.listen(
-      positionsRefreshTriggerProvider,
-      (previous, next) {
-        if (previous != next && !isInitialLoad) {
-          fetchAndUpdate();
-        }
-      },
-    );
-
-    // Initial fetch
-    fetchAndUpdate();
-
-    // Auto-refresh every 5 seconds only when this provider is active
-    autoRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      fetchAndUpdate();
-    });
-
-    ref.onDispose(() {
-      autoRefreshTimer?.cancel();
-      refreshTriggerSubscription.close();
-      controller.close();
-    });
-
-    return controller.stream;
-  });
-}
-
-// Real-time positions provider that auto-disposes when not used
-final realTimePositionsProvider = StreamProvider<List<Position>>((ref) {
-  final positionsService = ref.watch(positionsApiServiceProvider);
-
-  final controller = StreamController<List<Position>>();
-  Timer? autoRefreshTimer;
-  List<Position>? cachedPositions;
-  bool isInitialLoad = true;
-
-  Future<void> fetchAndUpdate() async {
-    try {
-      final positions = await positionsService.getUserPositions();
-      cachedPositions = positions;
-
-      if (!controller.isClosed) {
-        controller.add(positions);
-      }
-
-      isInitialLoad = false;
-    } catch (error) {
-      // On error, emit cached data if available, otherwise emit error
-      if (cachedPositions != null && !controller.isClosed) {
-        controller.add(cachedPositions!);
-      } else if (!controller.isClosed) {
-        controller.addError(error);
-      }
-    }
-  }
-
-  // Listen to manual refresh trigger
-  final refreshTriggerSubscription = ref.listen(
-    positionsRefreshTriggerProvider,
-    (previous, next) {
-      if (previous != next && !isInitialLoad) {
-        fetchAndUpdate();
-      }
-    },
-  );
-
-  // Initial fetch
-  fetchAndUpdate();
-
-  // Auto-refresh every 5 seconds only when this provider is active
-  autoRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-    fetchAndUpdate();
-  });
-
-  // Important: This will automatically stop when no widgets are watching
-  ref.onDispose(() {
-    autoRefreshTimer?.cancel();
-    refreshTriggerSubscription.close();
-    controller.close();
-  });
-
-  return controller.stream;
-});
-
-// All Positions Provider (including closed)
-final allPositionsProvider = FutureProvider<List<Position>>((ref) async {
-  final positionsService = ref.watch(positionsApiServiceProvider);
-  return await positionsService.getAllPositions();
-});
-
-// Total Unrealized PnL Provider (real-time) - only active when positions are being watched
-final realTimeUnrealizedPnlProvider = Provider<double>((ref) {
-  final positionsAsync = ref.watch(realTimePositionsProvider);
-
-  return positionsAsync.when(
-    data: (positions) => positions.fold<double>(
-      0.0,
-      (sum, position) => sum + position.unrealisedPnlValue,
-    ),
-    loading: () => 0.0,
-    error: (_, __) => 0.0,
-  );
-});
-
-// Total Margin Used Provider (real-time) - only active when positions are being watched
-final realTimeMarginUsedProvider = Provider<double>((ref) {
-  final positionsAsync = ref.watch(realTimePositionsProvider);
-
-  return positionsAsync.when(
-    data: (positions) => positions.fold<double>(
-      0.0,
-      (sum, position) => sum + position.marginValue,
-    ),
-    loading: () => 0.0,
-    error: (_, __) => 0.0,
-  );
-});
-
-// Static P&L providers (for non-real-time use)
-final totalUnrealizedPnlProvider = FutureProvider<double>((ref) async {
-  final positionsService = ref.watch(positionsApiServiceProvider);
-  return await positionsService.getTotalUnrealizedPnl();
-});
-
-final totalMarginUsedProvider = FutureProvider<double>((ref) async {
-  final positionsService = ref.watch(positionsApiServiceProvider);
-  return await positionsService.getTotalMarginUsed();
-});
-
-// Positions by Market Provider
-final positionsByMarketProvider = FutureProvider.family<List<Position>, String>(
-  (ref, market) async {
-    final positionsService = ref.watch(positionsApiServiceProvider);
-    return await positionsService.getPositionsByMarket(market);
-  },
-);
-
-// Positions by Side Provider (LONG/SHORT)
-final positionsBySideProvider = FutureProvider.family<List<Position>, String>((
-  ref,
-  side,
-) async {
-  final positionsService = ref.watch(positionsApiServiceProvider);
-  return await positionsService.getPositionsBySide(side);
+  return await positionsService.getClosedPositions();
 });
 
 // Markets Data Provider
@@ -282,39 +98,3 @@ final marketCategoriesProvider = FutureProvider<List<String>>((ref) async {
   return categories;
 });
 
-// Order History Provider
-final orderHistoryProvider = FutureProvider<List<Order>>((ref) async {
-  final ordersService = ref.watch(ordersApiServiceProvider);
-  return await ordersService.getOrderHistory();
-});
-
-// Order History by Market Provider
-final orderHistoryByMarketProvider = FutureProvider.family<List<Order>, String>(
-  (ref, market) async {
-    final ordersService = ref.watch(ordersApiServiceProvider);
-    return await ordersService.getOrderHistoryByMarket(market: market);
-  },
-);
-
-// Order History by Side Provider
-final orderHistoryBySideProvider = FutureProvider.family<List<Order>, String>((
-  ref,
-  side,
-) async {
-  final ordersService = ref.watch(ordersApiServiceProvider);
-  return await ordersService.getOrderHistoryBySide(side: side);
-});
-
-// Order History by Status Provider
-final orderHistoryByStatusProvider = FutureProvider.family<List<Order>, String>(
-  (ref, status) async {
-    final ordersService = ref.watch(ordersApiServiceProvider);
-    return await ordersService.getOrderHistoryByStatus(status: status);
-  },
-);
-
-// Helper function to manually trigger refresh
-void triggerPositionsRefresh(WidgetRef ref) {
-  final currentValue = ref.read(positionsRefreshTriggerProvider);
-  ref.read(positionsRefreshTriggerProvider.notifier).state = currentValue + 1;
-}
