@@ -31,6 +31,14 @@ class Position {
   final int? createdAt;
   @JsonKey(name: 'updated_at')
   final int? updatedAt;
+  @JsonKey(name: 'exit_type')
+  final String? exitType;
+  @JsonKey(name: 'exit_price')
+  final double? exitPrice;
+  @JsonKey(name: 'created_time')
+  final int? createdTime;
+  @JsonKey(name: 'closed_time')
+  final int? closedTime;
 
   const Position({
     this.id,
@@ -50,6 +58,10 @@ class Position {
     this.adl,
     this.createdAt,
     this.updatedAt,
+    this.exitType,
+    this.exitPrice,
+    this.createdTime,
+    this.closedTime,
   });
 
   factory Position.fromJson(Map<String, dynamic> json) =>
@@ -77,6 +89,16 @@ class Position {
   DateTime? get updatedAtDateTime => updatedAt != null
       ? DateTime.fromMillisecondsSinceEpoch(updatedAt!)
       : null;
+
+  // Computed properties for closed positions
+  double get exitPriceValue => exitPrice ?? 0.0;
+  DateTime? get createdTimeDateTime => createdTime != null
+      ? DateTime.fromMillisecondsSinceEpoch(createdTime!)
+      : null;
+  DateTime? get closedTimeDateTime => closedTime != null
+      ? DateTime.fromMillisecondsSinceEpoch(closedTime!)
+      : null;
+  bool get isClosed => exitType != null && closedTime != null;
 
   // Calculate price change percentage
   double get priceChangePercentage {

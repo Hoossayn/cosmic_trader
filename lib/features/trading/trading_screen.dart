@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:confetti/confetti.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wallet_kit/services/wallet_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/asset_dropdown.dart';
 import '../../shared/widgets/direction_selector.dart';
@@ -14,6 +15,8 @@ import '../../shared/providers/api_providers.dart';
 import '../../shared/models/market_models.dart';
 import '../../shared/models/order_models.dart';
 import '../../shared/utils/market_utils.dart';
+import 'package:starknet_provider/starknet_provider.dart';
+import '';
 
 class TradingScreen extends ConsumerStatefulWidget {
   const TradingScreen({super.key});
@@ -874,7 +877,9 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
         stopLossPrice: _stopLoss,
       );
 
-      print('request object ${request.toJson()}');
+      WalletService.newSeedPhrase();
+
+      print('request object ${WalletService.newSeedPhrase()}');
       // Place the order
       final response = await ordersService.placeOrder(request);
 

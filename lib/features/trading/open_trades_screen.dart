@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'dart:async';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/position_models.dart';
-import '../../shared/models/order_models.dart';
 import '../../shared/providers/api_providers.dart';
 import '../../shared/widgets/asset_dropdown.dart';
 import '../../shared/utils/market_utils.dart';
@@ -182,16 +181,22 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     AsyncValue<List<Position>> closedPositionsAsync,
   ) {
     return closedPositionsAsync.when(
-      data: (positions) => positions.isEmpty
-          ? _buildOrderHistoryEmptyState()
-          : _buildPositionsList(positions, isOpenTab: false),
+      data: (positions) {
+        // Filter out positions with null exit_type or closed_time
+        final filteredPositions = positions
+            .where((pos) => pos.exitType != null && pos.closedTime != null)
+            .toList();
+
+        return filteredPositions.isEmpty
+            ? _buildOrderHistoryEmptyState()
+            : _buildClosedPositionsList(filteredPositions);
+      },
       loading: () => const Center(
         child: CircularProgressIndicator(color: AppTheme.energyGreen),
       ),
       error: (error, stack) => _buildOrderHistoryErrorState(error.toString()),
     );
   }
-
 
   Widget _buildOrderHistoryEmptyState() {
     return Center(
@@ -389,6 +394,27 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     );
   }
 
+  Widget _buildClosedPositionsList(List<Position> positions) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(closedPositionsProvider);
+        // Small delay to show refresh action
+        await Future.delayed(const Duration(milliseconds: 500));
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(20),
+        itemCount: positions.length,
+        itemBuilder: (context, index) {
+          final position = positions[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildClosedPositionCard(position),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildPositionsList(
     List<Position> positions, {
     required bool isOpenTab,
@@ -417,11 +443,187 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     );
   }
 
+  Widget _buildClosedPositionCard(Position position) {
+    final isProfitable = position.realisedPnlValue >= 0;
+    final positionKey = '${position.id}_closed'; // Use unique ID for key
+    final isExpanded = _expandedClosedPositions.contains(positionKey);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.spaceDeep,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isProfitable
+              ? AppTheme.energyGreen.withOpacity(0.3)
+              : AppTheme.dangerRed.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Header row - always visible
+          Row(
+            children: [
+              // Asset info
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _getAssetColor(position.market ?? '').withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Center(
+                  child: AssetDropdown.buildAssetImage(
+                    _getBaseAsset(position.market ?? ''),
+                    'crypto',
+                    size: 24,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      position.market ?? 'Unknown',
+                      style: AppTheme.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '${position.leverageValue.toStringAsFixed(0)}x ${position.side} • ${position.exitType}',
+                      style: AppTheme.bodySmall.copyWith(
+                        color: position.isLong
+                            ? AppTheme.energyGreen
+                            : AppTheme.dangerRed,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Realized P&L
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${isProfitable ? '+' : ''}${MarketUtils.formatPrice(position.realisedPnlValue)}',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: isProfitable
+                          ? AppTheme.energyGreen
+                          : AppTheme.dangerRed,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    'Realized P&L',
+                    style: AppTheme.bodySmall.copyWith(color: AppTheme.gray400),
+                  ),
+                ],
+              ),
+
+              // Expand/Collapse button
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (isExpanded) {
+                      _expandedClosedPositions.remove(positionKey);
+                    } else {
+                      _expandedClosedPositions.add(positionKey);
+                    }
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.gray400.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: AppTheme.gray400,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Expandable content - only show when expanded
+          if (isExpanded) ...[
+            const SizedBox(height: 16),
+
+            // Position details
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.spaceDark.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  _buildDetailRow(
+                    'Size:',
+                    '${position.sizeValue.toStringAsFixed(2)} ${_getBaseAsset(position.market ?? '')}',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Entry Price:',
+                    MarketUtils.formatPrice(position.openPriceValue),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Exit Price:',
+                    MarketUtils.formatPrice(position.exitPriceValue),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Realized P&L:',
+                    '${isProfitable ? '+' : ''}${MarketUtils.formatPrice(position.realisedPnlValue)}',
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Opened:',
+                    _formatDateTime(
+                      position.createdTimeDateTime ?? DateTime.now(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Closed:',
+                    _formatDateTime(
+                      position.closedTimeDateTime ?? DateTime.now(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDetailRow(
+                    'Duration:',
+                    _formatDuration(
+                      (position.closedTimeDateTime ?? DateTime.now())
+                          .difference(
+                            position.createdTimeDateTime ?? DateTime.now(),
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    ).animate().fadeIn(duration: 400.ms).slideX(begin: 0.2);
+  }
+
   Widget _buildPositionCard(Position position, {required bool isOpenTab}) {
     final isProfitable = position.isProfitable;
     final roiPercent = position.roiPercentage;
     final positionKey =
-        '${position.market ?? 'unknown'}_${position.side ?? 'unknown'}_${position.createdAtDateTime?.millisecondsSinceEpoch ?? 0}';
+        '${position.id}_${isOpenTab ? 'open' : 'closed'}'; // Use unique ID for key
     final expandedSet = isOpenTab
         ? _expandedOpenPositions
         : _expandedClosedPositions;
@@ -797,179 +999,6 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
         ],
       ),
     );
-  }
-
-  Widget _buildOrderCard(Order order) {
-    final isBuy = order.isBuy;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.spaceDeep,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isBuy
-              ? AppTheme.energyGreen.withOpacity(0.3)
-              : AppTheme.dangerRed.withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Header row
-          Row(
-            children: [
-              // Asset info
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _getAssetColor(order.market).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Center(
-                  child: AssetDropdown.buildAssetImage(
-                    _getBaseAsset(order.market),
-                    'crypto',
-                    size: 24,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      order.market,
-                      style: AppTheme.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          order.side,
-                          style: AppTheme.bodySmall.copyWith(
-                            color: isBuy
-                                ? AppTheme.energyGreen
-                                : AppTheme.dangerRed,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(
-                              order.status,
-                            ).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: _getStatusColor(
-                                order.status,
-                              ).withOpacity(0.3),
-                            ),
-                          ),
-                          child: Text(
-                            order.status,
-                            style: AppTheme.bodySmall.copyWith(
-                              color: _getStatusColor(order.status),
-                              fontWeight: FontWeight.w500,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Order amount
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '\$${order.totalValue.toStringAsFixed(2)}',
-                    style: AppTheme.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    '${order.filledQtyValue.toStringAsFixed(4)} ${_getBaseAsset(order.market)}',
-                    style: AppTheme.bodySmall.copyWith(color: AppTheme.gray400),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // Order details
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.spaceDark.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                _buildDetailRow('Type:', order.type),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Price:',
-                  '\$${order.priceValue.toStringAsFixed(4)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Average Price:',
-                  '\$${order.averagePriceValue.toStringAsFixed(4)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Quantity:',
-                  '${order.qtyValue.toStringAsFixed(4)} ${_getBaseAsset(order.market)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Filled:',
-                  '${order.filledQtyValue.toStringAsFixed(4)} ${_getBaseAsset(order.market)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Fee:',
-                  '\$${order.payedFeeValue.toStringAsFixed(4)}',
-                ),
-                const SizedBox(height: 8),
-                _buildDetailRow(
-                  'Time:',
-                  _formatDateTime(order.createdAtDateTime),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideX(begin: 0.2);
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status.toUpperCase()) {
-      case 'FILLED':
-        return AppTheme.energyGreen;
-      case 'CANCELLED':
-        return AppTheme.dangerRed;
-      case 'PARTIALLY_FILLED':
-        return AppTheme.starYellow;
-      case 'PENDING':
-        return AppTheme.cosmicBlue;
-      default:
-        return AppTheme.gray400;
-    }
   }
 
   String _formatDateTime(DateTime dateTime) {

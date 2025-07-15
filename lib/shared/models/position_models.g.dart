@@ -24,6 +24,10 @@ Position _$PositionFromJson(Map<String, dynamic> json) => Position(
       adl: (json['adl'] as num?)?.toInt(),
       createdAt: (json['created_at'] as num?)?.toInt(),
       updatedAt: (json['updated_at'] as num?)?.toInt(),
+      exitType: json['exit_type'] as String?,
+      exitPrice: (json['exit_price'] as num?)?.toDouble(),
+      createdTime: (json['created_time'] as num?)?.toInt(),
+      closedTime: (json['closed_time'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$PositionToJson(Position instance) => <String, dynamic>{
@@ -44,4 +48,8 @@ Map<String, dynamic> _$PositionToJson(Position instance) => <String, dynamic>{
       'adl': instance.adl,
       'created_at': instance.createdAt,
       'updated_at': instance.updatedAt,
+      'exit_type': instance.exitType,
+      'exit_price': instance.exitPrice,
+      'created_time': instance.createdTime,
+      'closed_time': instance.closedTime,
     };
