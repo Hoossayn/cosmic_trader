@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wallet_kit/wallet_state/wallet_provider.dart';
 import '../../core/theme/app_theme.dart';
 
-enum TokenSymbol { BTC, ETH, FOCUS, USDC, USDT, STRK }
+enum TokenSymbol { ETH, USDC, USDT, STRK }
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
@@ -263,12 +263,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
 
   String _getTokenDisplayName(TokenSymbol token) {
     switch (token) {
-      case TokenSymbol.BTC:
-        return 'Bitcoin';
       case TokenSymbol.ETH:
         return 'Ethereum';
-      case TokenSymbol.FOCUS:
-        return 'Focus';
       case TokenSymbol.USDC:
         return 'USDC';
       case TokenSymbol.USDT:
@@ -280,12 +276,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
 
   String _getTokenSymbol(TokenSymbol token) {
     switch (token) {
-      case TokenSymbol.BTC:
-        return '₿';
       case TokenSymbol.ETH:
-        return 'Ξ';
-      case TokenSymbol.FOCUS:
-        return 'F';
+        return 'E';
       case TokenSymbol.USDC:
         return '\$';
       case TokenSymbol.USDT:
@@ -297,12 +289,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
 
   Color _getTokenColor(TokenSymbol token) {
     switch (token) {
-      case TokenSymbol.BTC:
-        return Colors.orange;
       case TokenSymbol.ETH:
         return Colors.blue;
-      case TokenSymbol.FOCUS:
-        return Colors.purple;
       case TokenSymbol.USDC:
         return Colors.green;
       case TokenSymbol.USDT:
@@ -315,12 +303,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   double _getTokenPrice(TokenSymbol token) {
     // Mock prices - in real app, fetch from API
     switch (token) {
-      case TokenSymbol.BTC:
-        return 45000.0;
       case TokenSymbol.ETH:
         return 3000.0;
-      case TokenSymbol.FOCUS:
-        return 1.0;
       case TokenSymbol.USDC:
         return 1.0;
       case TokenSymbol.USDT:

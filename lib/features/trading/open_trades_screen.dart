@@ -273,7 +273,10 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
           ),
           const SizedBox(height: 32),
           GestureDetector(
-            onTap: () => ref.invalidate(openPositionsProvider),
+            onTap: () {
+              ref.invalidate(openPositionsProvider);
+              ref.invalidate(closedPositionsProvider);
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
