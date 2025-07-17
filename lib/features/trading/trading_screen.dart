@@ -937,6 +937,13 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
 
         // Refresh positions data
         ref.invalidate(openPositionsProvider);
+
+        // Navigate back to the previous screen (open trades) after successful trade
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            context.pop();
+          }
+        });
       }
     } catch (e) {
       setState(() {

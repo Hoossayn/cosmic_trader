@@ -19,6 +19,7 @@ class OpenTradesScreen extends ConsumerStatefulWidget {
 class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _refreshTimer;
 
   // Track expanded state for each position card - separate for each tab
   final Set<String> _expandedOpenPositions = <String>{};
@@ -28,12 +29,29 @@ class _OpenTradesScreenState extends ConsumerState<OpenTradesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    // Start periodic refresh timer for open trades
+    _startPeriodicRefresh();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _refreshTimer?.cancel();
     super.dispose();
+  }
+
+  void _startPeriodicRefresh() {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 8), (timer) {
+      // Only refresh if the widget is still mounted and on the open trades tab
+      if (mounted && _tabController.index == 0) {
+        ref.invalidate(openPositionsProvider);
+      }
+      // Always refresh closed positions less frequently
+      if (mounted && _tabController.index == 1) {
+        ref.invalidate(closedPositionsProvider);
+      }
+    });
   }
 
   @override
