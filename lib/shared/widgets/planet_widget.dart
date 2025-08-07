@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'dart:math' as math;
 import '../../core/theme/app_theme.dart';
 import '../models/nft_model.dart';
@@ -26,6 +25,7 @@ class _PlanetWidgetState extends State<PlanetWidget>
     with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late AnimationController _orbitController;
+  late AnimationController _cloudsController;
 
   @override
   void initState() {
@@ -39,37 +39,50 @@ class _PlanetWidgetState extends State<PlanetWidget>
       duration: const Duration(seconds: 10),
       vsync: this,
     )..repeat();
+
+    _cloudsController = AnimationController(
+      duration: const Duration(seconds: 14),
+      vsync: this,
+    )..repeat();
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
     _orbitController.dispose();
+    _cloudsController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final planetDiameter = widget.size * 0.68;
+    final ringTiltRadians = -0.35;
+
     return SizedBox(
       width: widget.size,
       height: widget.size,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Outer glow effect
+          CustomPaint(
+            size: Size(widget.size, widget.size),
+            painter: _StarFieldPainter(twinkle: _pulseController.value),
+          ),
+
           AnimatedBuilder(
             animation: _pulseController,
             builder: (context, child) {
               return Container(
-                width: widget.size + (_pulseController.value * 20),
-                height: widget.size + (_pulseController.value * 20),
+                width: widget.size + (_pulseController.value * 18),
+                height: widget.size + (_pulseController.value * 18),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
                       Colors.transparent,
                       _getHealthColor().withOpacity(
-                        0.1 * _pulseController.value,
+                        0.09 * _pulseController.value,
                       ),
                       Colors.transparent,
                     ],
@@ -79,73 +92,77 @@ class _PlanetWidgetState extends State<PlanetWidget>
             },
           ),
 
-          // Orbital elements
-          if (widget.showOrbitalElements) ..._buildOrbitalElements(),
+          CustomPaint(
+            size: Size(widget.size, widget.size),
+            painter: _RingPainter(
+              ringColor: _ringColorForHealth(),
+              planetDiameter: planetDiameter,
+              thickness: 18,
+              innerScale: 1.15,
+              outerScale: 1.65,
+              tiltRadians: ringTiltRadians,
+              drawFrontSegment: false,
+            ),
+          ),
 
-          // NFT decorations
+          SizedBox(
+            width: planetDiameter,
+            height: planetDiameter,
+            child: ClipOval(
+              child: CustomPaint(
+                painter: _PlanetSpherePainter(
+                  baseColor: _getHealthColor(),
+                  lightDirection: const Offset(-0.6, -0.5),
+                  noiseSeed: (_orbitController.value * 10000).toInt(),
+                ),
+                child: AnimatedBuilder(
+                  animation: _cloudsController,
+                  builder: (context, child) {
+                    return CustomPaint(
+                      painter: _CloudBandsPainter(
+                        progress: _cloudsController.value,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          CustomPaint(
+            size: Size(widget.size, widget.size),
+            painter: _RingPainter(
+              ringColor: _ringColorForHealth(),
+              planetDiameter: planetDiameter,
+              thickness: 18,
+              innerScale: 1.15,
+              outerScale: 1.65,
+              tiltRadians: ringTiltRadians,
+              drawFrontSegment: true,
+            ),
+          ),
+
+          if (widget.showOrbitalElements) ..._buildMoons(),
+          if (widget.showOrbitalElements) ..._buildOrbitalElements(),
           if (widget.ownedNFTs != null) ..._buildNFTDecorations(),
 
-          // Main planet
-          Container(
-            width: widget.size * 0.7,
-            height: widget.size * 0.7,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                center: const Alignment(-0.3, -0.3),
-                radius: 1.2,
-                colors: [
-                  _getHealthColor().withOpacity(0.9),
-                  _getHealthColor(),
-                  _getHealthColor().withOpacity(0.8),
-                  AppTheme.spaceDark,
-                ],
-                stops: const [0.0, 0.4, 0.7, 1.0],
+          Positioned(
+            bottom: 10,
+            right: 10,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.spaceDark.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _getHealthColor().withOpacity(0.5)),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: _getHealthColor().withOpacity(0.3),
-                  blurRadius: 30,
-                  spreadRadius: 5,
+              child: Text(
+                '${widget.healthLevel}%',
+                style: AppTheme.bodySmall.copyWith(
+                  color: _getHealthColor(),
+                  fontWeight: FontWeight.w600,
                 ),
-                BoxShadow(
-                  color: AppTheme.spaceDark.withOpacity(0.8),
-                  blurRadius: 10,
-                  offset: const Offset(5, 5),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                // Planet surface details
-                ..._buildPlanetFeatures(),
-
-                // Health indicator overlay
-                Positioned(
-                  bottom: 10,
-                  right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.spaceDark.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _getHealthColor().withOpacity(0.5),
-                      ),
-                    ),
-                    child: Text(
-                      '${widget.healthLevel}%',
-                      style: AppTheme.bodySmall.copyWith(
-                        color: _getHealthColor(),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -217,83 +234,45 @@ class _PlanetWidgetState extends State<PlanetWidget>
     ];
   }
 
-  List<Widget> _buildPlanetFeatures() {
-    final features = <Widget>[];
-
-    // Add continents/landmasses based on health
-    if (widget.healthLevel > 20) {
-      features.add(
-        Positioned(
-          top: widget.size * 0.15,
-          left: widget.size * 0.2,
-          child: Container(
-            width: widget.size * 0.25,
-            height: widget.size * 0.2,
-            decoration: BoxDecoration(
-              color: AppTheme.energyGreen.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(20),
-            ),
-          ),
+  List<Widget> _buildMoons() {
+    final moons = <Widget>[];
+    for (int i = 0; i < 2; i++) {
+      moons.add(
+        AnimatedBuilder(
+          animation: _orbitController,
+          builder: (context, child) {
+            final baseAngle =
+                (_orbitController.value * 2 * math.pi) + (i * math.pi * 0.7);
+            final radius = widget.size * (0.45 + i * 0.1);
+            final x = math.cos(baseAngle) * radius;
+            final y = math.sin(baseAngle) * radius * 0.6;
+            return Transform.translate(
+              offset: Offset(x, y),
+              child: Container(
+                width: 10 + i * 4,
+                height: 10 + i * 4,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const RadialGradient(
+                    colors: [Colors.white70, Colors.white24],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.2),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       );
     }
-
-    if (widget.healthLevel > 40) {
-      features.add(
-        Positioned(
-          bottom: widget.size * 0.2,
-          right: widget.size * 0.15,
-          child: Container(
-            width: widget.size * 0.3,
-            height: widget.size * 0.25,
-            decoration: BoxDecoration(
-              color: AppTheme.energyGreen.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(25),
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (widget.healthLevel > 60) {
-      features.add(
-        Positioned(
-          top: widget.size * 0.4,
-          right: widget.size * 0.25,
-          child: Container(
-            width: widget.size * 0.15,
-            height: widget.size * 0.15,
-            decoration: BoxDecoration(
-              color: AppTheme.starYellow.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Add atmosphere effect
-    if (widget.healthLevel > 80) {
-      features.add(
-        Container(
-          width: widget.size * 0.7,
-          height: widget.size * 0.7,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                Colors.transparent,
-                AppTheme.energyGreen.withOpacity(0.1),
-                AppTheme.energyGreen.withOpacity(0.05),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return features;
+    return moons;
   }
+
+  // Removed old surface widgets in favor of custom painters above.
 
   List<Widget> _buildNFTDecorations() {
     if (widget.ownedNFTs == null || widget.ownedNFTs!.isEmpty) {
@@ -494,5 +473,215 @@ class _PlanetWidgetState extends State<PlanetWidget>
     } else {
       return AppTheme.dangerRed;
     }
+  }
+
+  Color _ringColorForHealth() {
+    final base = _getHealthColor();
+    return base.withOpacity(0.7);
+  }
+}
+
+class _StarFieldPainter extends CustomPainter {
+  final double twinkle;
+  _StarFieldPainter({required this.twinkle});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rand = math.Random(42);
+    final paint = Paint()..color = Colors.white.withOpacity(0.6);
+    for (int i = 0; i < 120; i++) {
+      final dx = rand.nextDouble() * size.width;
+      final dy = rand.nextDouble() * size.height;
+      final r = (rand.nextDouble() * 1.2 + 0.3) * (0.7 + twinkle * 0.6);
+      canvas.drawCircle(
+        Offset(dx, dy),
+        r,
+        paint..color = Colors.white.withOpacity(0.25 + rand.nextDouble() * 0.5),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StarFieldPainter oldDelegate) =>
+      oldDelegate.twinkle != twinkle;
+}
+
+class _PlanetSpherePainter extends CustomPainter {
+  final Color baseColor;
+  final Offset lightDirection;
+  final int noiseSeed;
+
+  _PlanetSpherePainter({
+    required this.baseColor,
+    required this.lightDirection,
+    required this.noiseSeed,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final radius = size.width / 2;
+    final center = Offset(radius, radius);
+
+    final sphereGradient = RadialGradient(
+      center: Alignment(lightDirection.dx, lightDirection.dy),
+      radius: 1.1,
+      colors: [
+        baseColor.withOpacity(0.95),
+        baseColor,
+        Colors.black.withOpacity(0.9),
+      ],
+      stops: const [0.0, 0.55, 1.0],
+    );
+
+    final paint = Paint()
+      ..shader = sphereGradient.createShader(Offset.zero & size)
+      ..isAntiAlias = true;
+
+    canvas.drawCircle(center, radius, paint);
+
+    final rand = math.Random(noiseSeed);
+    final blotPaint = Paint()..isAntiAlias = true;
+    for (int i = 0; i < 80; i++) {
+      final angle = rand.nextDouble() * 2 * math.pi;
+      final dist = rand.nextDouble() * radius * 0.8;
+      final pos = center + Offset(math.cos(angle), math.sin(angle)) * dist;
+      final blotRadius = rand.nextDouble() * 8 + 3;
+      final alpha = 0.06 + rand.nextDouble() * 0.08;
+      final c = baseColor.withOpacity(alpha);
+      blotPaint.shader = RadialGradient(
+        colors: [c, Colors.transparent],
+      ).createShader(Rect.fromCircle(center: pos, radius: blotRadius));
+      canvas.drawCircle(pos, blotRadius, blotPaint);
+    }
+
+    final specCenter =
+        center +
+        Offset(
+          radius * lightDirection.dx * 0.6,
+          radius * lightDirection.dy * 0.6,
+        );
+    final specPaint = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [Colors.white.withOpacity(0.35), Colors.transparent],
+          ).createShader(
+            Rect.fromCircle(center: specCenter, radius: radius * 0.22),
+          );
+    canvas.drawCircle(specCenter, radius * 0.22, specPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlanetSpherePainter oldDelegate) {
+    return oldDelegate.baseColor != baseColor ||
+        oldDelegate.lightDirection != lightDirection ||
+        oldDelegate.noiseSeed != noiseSeed;
+  }
+}
+
+class _CloudBandsPainter extends CustomPainter {
+  final double progress;
+  _CloudBandsPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..isAntiAlias = true
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 6;
+    final bands = [
+      Colors.white.withOpacity(0.10),
+      Colors.white.withOpacity(0.06),
+      Colors.white.withOpacity(0.08),
+    ];
+
+    for (int i = 0; i < bands.length; i++) {
+      final yOffset = (i - 1) * 10.0 + math.sin(progress * 2 * math.pi + i) * 4;
+      paint.color = bands[i];
+      final rect = Rect.fromCircle(
+        center: center.translate(0, yOffset),
+        radius: radius,
+      );
+      canvas.drawArc(rect, progress * 2 * math.pi, math.pi * 1.4, false, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CloudBandsPainter oldDelegate) =>
+      oldDelegate.progress != progress;
+}
+
+class _RingPainter extends CustomPainter {
+  final Color ringColor;
+  final double planetDiameter;
+  final double thickness;
+  final double innerScale;
+  final double outerScale;
+  final double tiltRadians;
+  final bool drawFrontSegment;
+
+  _RingPainter({
+    required this.ringColor,
+    required this.planetDiameter,
+    required this.thickness,
+    required this.innerScale,
+    required this.outerScale,
+    required this.tiltRadians,
+    required this.drawFrontSegment,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final innerR = (planetDiameter / 2) * innerScale;
+    final outerR = (planetDiameter / 2) * outerScale;
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(tiltRadians);
+    canvas.scale(1, 0.55);
+
+    final ringPaint = Paint()
+      ..shader = SweepGradient(
+        colors: [
+          ringColor.withOpacity(0.0),
+          ringColor.withOpacity(0.7),
+          ringColor.withOpacity(0.0),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromCircle(center: Offset.zero, radius: outerR))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = thickness
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+
+    if (drawFrontSegment) {
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset.zero, radius: (innerR + outerR) / 2),
+        math.pi * 0.03,
+        math.pi - 0.06,
+        false,
+        ringPaint,
+      );
+    } else {
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset.zero, radius: (innerR + outerR) / 2),
+        -math.pi + 0.03,
+        math.pi - 0.06,
+        false,
+        ringPaint,
+      );
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter oldDelegate) {
+    return oldDelegate.ringColor != ringColor ||
+        oldDelegate.planetDiameter != planetDiameter ||
+        oldDelegate.drawFrontSegment != drawFrontSegment ||
+        oldDelegate.tiltRadians != tiltRadians;
   }
 }
