@@ -113,7 +113,8 @@ class _PlanetWidgetState extends State<PlanetWidget>
                 painter: _PlanetSpherePainter(
                   baseColor: _getHealthColor(),
                   lightDirection: const Offset(-0.6, -0.5),
-                  noiseSeed: (_orbitController.value * 10000).toInt(),
+                  noiseSeed: 7777, // stable seed to keep terrain consistent
+                  healthLevel: widget.healthLevel,
                 ),
                 child: AnimatedBuilder(
                   animation: _cloudsController,
@@ -121,6 +122,11 @@ class _PlanetWidgetState extends State<PlanetWidget>
                     return CustomPaint(
                       painter: _CloudBandsPainter(
                         progress: _cloudsController.value,
+                        color: widget.healthLevel >= 75
+                            ? Colors.white
+                            : widget.healthLevel >= 40
+                            ? Colors.white.withOpacity(0.7)
+                            : Colors.brown,
                       ),
                     );
                   },
@@ -132,9 +138,11 @@ class _PlanetWidgetState extends State<PlanetWidget>
           CustomPaint(
             size: Size(widget.size, widget.size),
             painter: _RingPainter(
-              ringColor: _ringColorForHealth(),
+              ringColor: widget.healthLevel >= 60
+                  ? _ringColorForHealth()
+                  : AppTheme.warningOrange.withOpacity(0.45),
               planetDiameter: planetDiameter,
-              thickness: 18,
+              thickness: widget.healthLevel >= 60 ? 18 : 10,
               innerScale: 1.15,
               outerScale: 1.65,
               tiltRadians: ringTiltRadians,
@@ -510,11 +518,13 @@ class _PlanetSpherePainter extends CustomPainter {
   final Color baseColor;
   final Offset lightDirection;
   final int noiseSeed;
+  final int healthLevel;
 
   _PlanetSpherePainter({
     required this.baseColor,
     required this.lightDirection,
     required this.noiseSeed,
+    required this.healthLevel,
   });
 
   @override
@@ -522,15 +532,41 @@ class _PlanetSpherePainter extends CustomPainter {
     final radius = size.width / 2;
     final center = Offset(radius, radius);
 
+    final healthyBlend = [
+      baseColor,
+      AppTheme.cosmicBlue.withOpacity(0.45),
+      AppTheme.energyGreen.withOpacity(0.6),
+    ];
+    final midBlend = [
+      baseColor.withOpacity(0.8),
+      AppTheme.warningOrange.withOpacity(0.4),
+      AppTheme.starYellow.withOpacity(0.5),
+    ];
+    final unhealthyBlend = [
+      AppTheme.dangerRed.withOpacity(0.8),
+      Colors.brown.withOpacity(0.6),
+      Colors.black.withOpacity(0.8),
+    ];
+
+    List<Color> palette;
+    if (healthLevel >= 80) {
+      palette = healthyBlend;
+    } else if (healthLevel >= 50) {
+      palette = midBlend;
+    } else {
+      palette = unhealthyBlend;
+    }
+
     final sphereGradient = RadialGradient(
       center: Alignment(lightDirection.dx, lightDirection.dy),
-      radius: 1.1,
+      radius: 1.12,
       colors: [
-        baseColor.withOpacity(0.95),
-        baseColor,
-        Colors.black.withOpacity(0.9),
+        palette[0].withOpacity(0.95),
+        palette[1],
+        palette[2],
+        Colors.black.withOpacity(0.92),
       ],
-      stops: const [0.0, 0.55, 1.0],
+      stops: const [0.0, 0.42, 0.72, 1.0],
     );
 
     final paint = Paint()
@@ -541,17 +577,57 @@ class _PlanetSpherePainter extends CustomPainter {
 
     final rand = math.Random(noiseSeed);
     final blotPaint = Paint()..isAntiAlias = true;
-    for (int i = 0; i < 80; i++) {
+    final blotCount = healthLevel >= 80
+        ? 60
+        : healthLevel >= 50
+        ? 85
+        : 110;
+    for (int i = 0; i < blotCount; i++) {
       final angle = rand.nextDouble() * 2 * math.pi;
       final dist = rand.nextDouble() * radius * 0.8;
       final pos = center + Offset(math.cos(angle), math.sin(angle)) * dist;
-      final blotRadius = rand.nextDouble() * 8 + 3;
-      final alpha = 0.06 + rand.nextDouble() * 0.08;
-      final c = baseColor.withOpacity(alpha);
+      final blotRadius = healthLevel >= 80
+          ? rand.nextDouble() * 7 + 2
+          : healthLevel >= 50
+          ? rand.nextDouble() * 9 + 3
+          : rand.nextDouble() * 11 + 4;
+      final alpha = healthLevel >= 80
+          ? (0.05 + rand.nextDouble() * 0.07)
+          : healthLevel >= 50
+          ? (0.07 + rand.nextDouble() * 0.09)
+          : (0.09 + rand.nextDouble() * 0.12);
+      final c = palette[rand.nextInt(palette.length)].withOpacity(alpha);
       blotPaint.shader = RadialGradient(
         colors: [c, Colors.transparent],
       ).createShader(Rect.fromCircle(center: pos, radius: blotRadius));
       canvas.drawCircle(pos, blotRadius, blotPaint);
+    }
+
+    if (healthLevel < 45) {
+      final crackPaint = Paint()
+        ..color = Colors.black.withOpacity(0.35)
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke;
+      for (int i = 0; i < 12; i++) {
+        final startAngle = rand.nextDouble() * 2 * math.pi;
+        final length = radius * (0.2 + rand.nextDouble() * 0.45);
+        final start =
+            center +
+            Offset(math.cos(startAngle), math.sin(startAngle)) * (radius * 0.6);
+        final end =
+            start +
+            Offset(math.cos(startAngle + 0.2), math.sin(startAngle + 0.2)) *
+                length;
+        final path = Path()
+          ..moveTo(start.dx, start.dy)
+          ..quadraticBezierTo(
+            (start.dx + end.dx) / 2 + rand.nextDouble() * 10 - 5,
+            (start.dy + end.dy) / 2 + rand.nextDouble() * 10 - 5,
+            end.dx,
+            end.dy,
+          );
+        canvas.drawPath(path, crackPaint);
+      }
     }
 
     final specCenter =
@@ -574,13 +650,15 @@ class _PlanetSpherePainter extends CustomPainter {
   bool shouldRepaint(covariant _PlanetSpherePainter oldDelegate) {
     return oldDelegate.baseColor != baseColor ||
         oldDelegate.lightDirection != lightDirection ||
-        oldDelegate.noiseSeed != noiseSeed;
+        oldDelegate.noiseSeed != noiseSeed ||
+        oldDelegate.healthLevel != healthLevel;
   }
 }
 
 class _CloudBandsPainter extends CustomPainter {
   final double progress;
-  _CloudBandsPainter({required this.progress});
+  final Color color;
+  _CloudBandsPainter({required this.progress, required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -592,9 +670,9 @@ class _CloudBandsPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 6;
     final bands = [
-      Colors.white.withOpacity(0.10),
-      Colors.white.withOpacity(0.06),
-      Colors.white.withOpacity(0.08),
+      color.withOpacity(0.10),
+      color.withOpacity(0.06),
+      color.withOpacity(0.08),
     ];
 
     for (int i = 0; i < bands.length; i++) {
@@ -610,7 +688,7 @@ class _CloudBandsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CloudBandsPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }
 
 class _RingPainter extends CustomPainter {
