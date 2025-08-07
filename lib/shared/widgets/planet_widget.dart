@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../../core/theme/app_theme.dart';
+import 'package:open_simplex_2/open_simplex_2.dart';
 import '../models/nft_model.dart';
 
 class PlanetWidget extends StatefulWidget {
@@ -531,6 +532,7 @@ class _PlanetSpherePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final radius = size.width / 2;
     final center = Offset(radius, radius);
+    final noise = OpenSimplex2F(noiseSeed);
 
     final healthyBlend = [
       baseColor,
@@ -577,25 +579,59 @@ class _PlanetSpherePainter extends CustomPainter {
 
     final rand = math.Random(noiseSeed);
     final blotPaint = Paint()..isAntiAlias = true;
+    final detailPaint = Paint()..isAntiAlias = true;
+
+    // Noise-driven terrain texture
+    final samples = 1200;
+    for (int i = 0; i < samples; i++) {
+      final angle = rand.nextDouble() * 2 * math.pi;
+      final dist = rand.nextDouble() * radius;
+      final pos = center + Offset(math.cos(angle), math.sin(angle)) * dist;
+      final nx = (pos.dx / size.width) * 3.0;
+      final ny = (pos.dy / size.height) * 3.0;
+      final n = noise.noise2(nx, ny); // [-1,1]
+      final v = (n + 1) / 2; // [0,1]
+
+      // Land/sea mask tuning by health
+      final threshold = healthLevel >= 80
+          ? 0.42
+          : healthLevel >= 50
+          ? 0.48
+          : 0.55;
+      final isLand = v > threshold;
+      final col = isLand
+          ? palette[(v * (palette.length - 1))
+                .clamp(0, palette.length - 1)
+                .floor()]
+          : Colors.black.withOpacity(0.6);
+
+      final rr = isLand ? (1.8 + v * 2.2) : 1.0 + (1 - v) * 1.5;
+      detailPaint.shader = RadialGradient(
+        colors: [col.withOpacity(isLand ? 0.25 : 0.15), Colors.transparent],
+      ).createShader(Rect.fromCircle(center: pos, radius: rr));
+      canvas.drawCircle(pos, rr, detailPaint);
+    }
+
+    // Larger colored blotches depending on health
     final blotCount = healthLevel >= 80
-        ? 60
+        ? 40
         : healthLevel >= 50
-        ? 85
-        : 110;
+        ? 70
+        : 100;
     for (int i = 0; i < blotCount; i++) {
       final angle = rand.nextDouble() * 2 * math.pi;
       final dist = rand.nextDouble() * radius * 0.8;
       final pos = center + Offset(math.cos(angle), math.sin(angle)) * dist;
       final blotRadius = healthLevel >= 80
-          ? rand.nextDouble() * 7 + 2
-          : healthLevel >= 50
           ? rand.nextDouble() * 9 + 3
-          : rand.nextDouble() * 11 + 4;
+          : healthLevel >= 50
+          ? rand.nextDouble() * 11 + 4
+          : rand.nextDouble() * 13 + 5;
       final alpha = healthLevel >= 80
           ? (0.05 + rand.nextDouble() * 0.07)
           : healthLevel >= 50
-          ? (0.07 + rand.nextDouble() * 0.09)
-          : (0.09 + rand.nextDouble() * 0.12);
+          ? (0.08 + rand.nextDouble() * 0.10)
+          : (0.11 + rand.nextDouble() * 0.14);
       final c = palette[rand.nextInt(palette.length)].withOpacity(alpha);
       blotPaint.shader = RadialGradient(
         colors: [c, Colors.transparent],

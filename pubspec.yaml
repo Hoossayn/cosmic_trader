@@ -75,6 +75,9 @@ dependencies:
   # SVG Support
   flutter_svg: ^2.0.9
 
+  # Noise algorithms
+  open_simplex_2: ^0.2.1
+
   # WebSockets for real-time data
   web_socket_channel: ^2.4.0
   starknet: ^0.1.2+1
