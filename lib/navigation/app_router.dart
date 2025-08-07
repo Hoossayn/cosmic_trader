@@ -10,6 +10,8 @@ import '../features/profile/profile_screen.dart';
 import '../features/profile/settings_screen.dart';
 import '../features/profile/wallet_screen.dart';
 import '../shared/widgets/main_navigation.dart';
+import '../features/auth/login_screen.dart';
+import '../features/auth/register_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -20,6 +22,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/onboarding',
         name: 'onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+
+      // Auth routes
+      GoRoute(
+        path: '/login',
+        name: 'login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        name: 'register',
+        builder: (context, state) => const RegisterScreen(),
       ),
 
       // Main shell with bottom navigation
