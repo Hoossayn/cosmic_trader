@@ -532,7 +532,9 @@ class _PlanetSpherePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final radius = size.width / 2;
     final center = Offset(radius, radius);
-    final noise = OpenSimplex2F(noiseSeed);
+    final landNoise = OpenSimplex2F(noiseSeed);
+    final oceanNoise = OpenSimplex2F(noiseSeed + 1337);
+    final stormNoise = OpenSimplex2F(noiseSeed + 4242);
 
     final healthyBlend = [
       baseColor,
@@ -578,65 +580,177 @@ class _PlanetSpherePainter extends CustomPainter {
     canvas.drawCircle(center, radius, paint);
 
     final rand = math.Random(noiseSeed);
-    final blotPaint = Paint()..isAntiAlias = true;
+    // removed unused paint (kept previously for future use)
     final detailPaint = Paint()..isAntiAlias = true;
 
-    // Noise-driven terrain texture
-    final samples = 1200;
+    double fbm(
+      OpenSimplex2F n,
+      double x,
+      double y, {
+      int octaves = 5,
+      double lac = 2.0,
+      double gain = 0.5,
+      double freq = 1,
+    }) {
+      double amp = 0.5;
+      double sum = 0;
+      double fx = x * freq;
+      double fy = y * freq;
+      for (int i = 0; i < octaves; i++) {
+        sum += amp * ((n.noise2(fx, fy) + 1) * 0.5);
+        fx *= lac;
+        fy *= lac;
+        amp *= gain;
+      }
+      return sum.clamp(0.0, 1.0);
+    }
+
+    // Fractal terrain with separate land/ocean, coasts, storms, and city lights
+    final samples = 1800;
+    final L2 = Offset(-lightDirection.dx, -lightDirection.dy);
+    final Llen = math.max(0.0001, math.sqrt(L2.dx * L2.dx + L2.dy * L2.dy));
+    final L = Offset(L2.dx / Llen, L2.dy / Llen);
+
     for (int i = 0; i < samples; i++) {
       final angle = rand.nextDouble() * 2 * math.pi;
       final dist = rand.nextDouble() * radius;
       final pos = center + Offset(math.cos(angle), math.sin(angle)) * dist;
-      final nx = (pos.dx / size.width) * 3.0;
-      final ny = (pos.dy / size.height) * 3.0;
-      final n = noise.noise2(nx, ny); // [-1,1]
-      final v = (n + 1) / 2; // [0,1]
 
-      // Land/sea mask tuning by health
-      final threshold = healthLevel >= 80
-          ? 0.42
+      final dx = (pos.dx - center.dx) / radius;
+      final dy = (pos.dy - center.dy) / radius;
+      final inside = dx * dx + dy * dy <= 1.0;
+      if (!inside) continue;
+
+      final dot = (dx * L.dx + dy * L.dy);
+      final isNight = dot < -0.05;
+
+      final sx = dx * 3.0;
+      final sy = dy * 3.0;
+      final landVal = fbm(
+        landNoise,
+        sx,
+        sy,
+        octaves: 5,
+        lac: 2.0,
+        gain: 0.5,
+        freq: 1.15,
+      );
+      final oceanVal = fbm(
+        oceanNoise,
+        sx + 10.0,
+        sy - 7.0,
+        octaves: 4,
+        lac: 2.1,
+        gain: 0.55,
+        freq: 0.95,
+      );
+      final terrain = landVal - 0.6 * oceanVal;
+
+      final threshold = healthLevel >= 85
+          ? 0.46
+          : healthLevel >= 70
+          ? 0.5
           : healthLevel >= 50
-          ? 0.48
-          : 0.55;
-      final isLand = v > threshold;
-      final col = isLand
-          ? palette[(v * (palette.length - 1))
-                .clamp(0, palette.length - 1)
-                .floor()]
-          : Colors.black.withOpacity(0.6);
+          ? 0.53
+          : 0.58;
+      final band = 0.085;
+      final d = (terrain - threshold);
+      final coast = (1.0 - (d.abs() / band)).clamp(0.0, 1.0);
+      final isLand = terrain > threshold;
 
-      final rr = isLand ? (1.8 + v * 2.2) : 1.0 + (1 - v) * 1.5;
+      Color landColor;
+      Color oceanColor;
+      if (healthLevel >= 80) {
+        landColor = Color.lerp(
+          palette[0],
+          palette[1],
+          landVal,
+        )!.withOpacity(0.28);
+        oceanColor = Color.lerp(
+          AppTheme.cosmicBlue.withOpacity(0.7),
+          AppTheme.energyGreen.withOpacity(0.25),
+          oceanVal,
+        )!.withOpacity(0.18);
+      } else if (healthLevel >= 50) {
+        landColor = Color.lerp(
+          palette[0],
+          palette[1],
+          landVal,
+        )!.withOpacity(0.32);
+        oceanColor = Color.lerp(
+          AppTheme.cosmicBlue.withOpacity(0.5),
+          AppTheme.warningOrange.withOpacity(0.25),
+          oceanVal,
+        )!.withOpacity(0.16);
+      } else {
+        landColor = Color.lerp(
+          palette[0],
+          palette[1],
+          landVal,
+        )!.withOpacity(0.35);
+        oceanColor = Color.lerp(
+          Colors.brown.withOpacity(0.6),
+          AppTheme.dangerRed.withOpacity(0.4),
+          oceanVal,
+        )!.withOpacity(0.18);
+      }
+
+      Color base = isLand ? landColor : oceanColor;
+      if (coast > 0) {
+        base = Color.lerp(
+          base,
+          Colors.white.withOpacity(isLand ? 0.35 : 0.2),
+          coast * (isLand ? 0.6 : 0.4),
+        )!;
+      }
+
+      final rr = isLand ? (1.6 + landVal * 2.0) : (1.2 + (1 - oceanVal) * 1.4);
       detailPaint.shader = RadialGradient(
-        colors: [col.withOpacity(isLand ? 0.25 : 0.15), Colors.transparent],
+        colors: [base, Colors.transparent],
       ).createShader(Rect.fromCircle(center: pos, radius: rr));
       canvas.drawCircle(pos, rr, detailPaint);
-    }
 
-    // Larger colored blotches depending on health
-    final blotCount = healthLevel >= 80
-        ? 40
-        : healthLevel >= 50
-        ? 70
-        : 100;
-    for (int i = 0; i < blotCount; i++) {
-      final angle = rand.nextDouble() * 2 * math.pi;
-      final dist = rand.nextDouble() * radius * 0.8;
-      final pos = center + Offset(math.cos(angle), math.sin(angle)) * dist;
-      final blotRadius = healthLevel >= 80
-          ? rand.nextDouble() * 9 + 3
-          : healthLevel >= 50
-          ? rand.nextDouble() * 11 + 4
-          : rand.nextDouble() * 13 + 5;
-      final alpha = healthLevel >= 80
-          ? (0.05 + rand.nextDouble() * 0.07)
-          : healthLevel >= 50
-          ? (0.08 + rand.nextDouble() * 0.10)
-          : (0.11 + rand.nextDouble() * 0.14);
-      final c = palette[rand.nextInt(palette.length)].withOpacity(alpha);
-      blotPaint.shader = RadialGradient(
-        colors: [c, Colors.transparent],
-      ).createShader(Rect.fromCircle(center: pos, radius: blotRadius));
-      canvas.drawCircle(pos, blotRadius, blotPaint);
+      // City lights on night side for very healthy planets
+      if (healthLevel >= 85 && isNight && isLand && rand.nextDouble() < 0.045) {
+        final lightPaint = Paint()
+          ..shader =
+              RadialGradient(
+                colors: [
+                  AppTheme.starYellow.withOpacity(0.9),
+                  Colors.transparent,
+                ],
+              ).createShader(
+                Rect.fromCircle(
+                  center: pos,
+                  radius: 1.8 + rand.nextDouble() * 1.4,
+                ),
+              );
+        canvas.drawCircle(pos, 1.8 + rand.nextDouble() * 1.4, lightPaint);
+      }
+
+      // Storm hotspots
+      if (healthLevel >= 60 && !isNight) {
+        final sv = fbm(
+          stormNoise,
+          sx * 1.8,
+          sy * 1.8,
+          octaves: 3,
+          lac: 2.2,
+          gain: 0.55,
+          freq: 1.3,
+        );
+        if (sv > 0.78 && rand.nextDouble() < 0.08) {
+          final stormR = 2.5 + (sv - 0.78) * 8.0;
+          final stormPaint = Paint()
+            ..shader = RadialGradient(
+              colors: [
+                Colors.white.withOpacity(0.22),
+                Colors.white.withOpacity(0.0),
+              ],
+            ).createShader(Rect.fromCircle(center: pos, radius: stormR));
+          canvas.drawCircle(pos, stormR, stormPaint);
+        }
+      }
     }
 
     if (healthLevel < 45) {
