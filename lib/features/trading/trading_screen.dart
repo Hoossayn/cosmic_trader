@@ -4,6 +4,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:confetti/confetti.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:math' as math;
+import 'package:fl_chart/fl_chart.dart';
 import 'package:wallet_kit/services/wallet_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/asset_dropdown.dart';
@@ -15,8 +17,9 @@ import '../../shared/providers/api_providers.dart';
 import '../../shared/models/market_models.dart';
 import '../../shared/models/order_models.dart';
 import '../../shared/utils/market_utils.dart';
-import 'package:starknet_provider/starknet_provider.dart';
-import '';
+// import 'package:starknet_provider/starknet_provider.dart';
+
+enum Timeframe { h1, d1, w1, m1, ytd, all }
 
 class TradingScreen extends ConsumerStatefulWidget {
   const TradingScreen({super.key});
@@ -38,9 +41,13 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
   bool _isTrading = false;
   bool _showCustomAmountInput = false;
   bool _showRiskManagement = false;
+  bool _showYearView = false;
   double? _stopLoss;
   double? _takeProfit;
   final TextEditingController _customAmountController = TextEditingController();
+
+  // Timeframe state for the chart
+  Timeframe _selectedTimeframe = Timeframe.ytd;
 
   @override
   void initState() {
@@ -155,6 +162,10 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
           const SizedBox(height: 24),
           _buildAssetSelection(),
           const SizedBox(height: 24),
+          _buildSparklineHeader(markets),
+          const SizedBox(height: 16),
+          _buildYearViewSection(markets),
+          const SizedBox(height: 24),
           _buildDirectionSelection(),
           const SizedBox(height: 24),
           _buildAmountSelection(),
@@ -221,17 +232,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
     );
   }
 
-  Widget _buildTitle() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Choose your direction and amount',
-          style: AppTheme.bodyLarge.copyWith(color: AppTheme.gray400),
-        ),
-      ],
-    );
-  }
+  // Removed unused _buildTitle()
 
   Widget _buildAssetSelection() {
     return AssetDropdown(
@@ -239,6 +240,8 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
       onAssetSelected: (asset) {
         setState(() {
           _selectedAsset = asset;
+          // collapse year view on asset change to keep context focused
+          _showYearView = false;
         });
       },
     );
@@ -281,6 +284,393 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
       ],
     );
   }
+
+  // ————————————————————————————————————————————————
+  // Sparkline + Year View (non-candlestick)
+  // ————————————————————————————————————————————————
+
+  Widget _buildSparklineHeader(List<Market> markets) {
+    final m = markets.where((mk) => mk.name == _selectedAsset).firstOrNull;
+    // Generate a friendly pseudo YTD series from current price for UI
+    final points = _generateYearSeries(m?.price ?? 50000);
+    final color = (points.last.y >= points.first.y)
+        ? AppTheme.energyGreen
+        : AppTheme.warningOrange;
+
+    return GestureDetector(
+      onTap: () => setState(() => _showYearView = !_showYearView),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.spaceDeep,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.2)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 28,
+                child: LineChart(
+                  LineChartData(
+                    gridData: const FlGridData(show: false),
+                    titlesData: const FlTitlesData(show: false),
+                    borderData: FlBorderData(show: false),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: points,
+                        isCurved: true,
+                        color: color,
+                        barWidth: 2,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            colors: [
+                              color.withOpacity(0.25),
+                              Colors.transparent,
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(
+              _showYearView
+                  ? Icons.keyboard_arrow_up
+                  : Icons.keyboard_arrow_down,
+              color: AppTheme.white,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildYearViewSection(List<Market> markets) {
+    if (!_showYearView) return const SizedBox.shrink();
+
+    final m = markets.where((mk) => mk.name == _selectedAsset).firstOrNull;
+    final spots = _generateSeriesForTimeframe(
+      m?.price ?? 50000,
+      _selectedTimeframe,
+    );
+
+    final up = spots.last.y >= spots.first.y;
+    final trendColor = up ? AppTheme.energyGreen : AppTheme.warningOrange;
+    final changePct = ((spots.last.y - spots.first.y) / spots.first.y) * 100;
+    final changeText = '${up ? '+' : ''}${changePct.toStringAsFixed(1)}%';
+    final high = spots.map((e) => e.y).reduce(math.max);
+    final low = spots.map((e) => e.y).reduce(math.min);
+
+    String timeframeLabel() {
+      switch (_selectedTimeframe) {
+        case Timeframe.h1:
+          return 'Past hour';
+        case Timeframe.d1:
+          return 'Today';
+        case Timeframe.w1:
+          return 'This week';
+        case Timeframe.m1:
+          return 'This month';
+        case Timeframe.ytd:
+          return 'This year';
+        case Timeframe.all:
+          return 'All time';
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.spaceDeep,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${timeframeLabel()} $changeText',
+                style: AppTheme.bodyMedium.copyWith(
+                  color: trendColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                'High ${MarketUtils.formatPrice(high)} • Low ${MarketUtils.formatPrice(low)}',
+                style: AppTheme.bodySmall.copyWith(color: AppTheme.gray400),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 180,
+            child: LineChart(
+              LineChartData(
+                minX: 0,
+                maxX: spots.length.toDouble() - 1,
+                gridData: const FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 20,
+                      interval: (spots.length / 4).floorToDouble().clamp(
+                        1.0,
+                        double.infinity,
+                      ),
+                      getTitlesWidget: (value, meta) => const SizedBox.shrink(),
+                    ),
+                  ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: trendColor,
+                    barWidth: 3,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          trendColor.withOpacity(0.25),
+                          Colors.transparent,
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                    shadow: Shadow(
+                      color: trendColor.withOpacity(0.3),
+                      blurRadius: 8,
+                    ),
+                  ),
+                ],
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    tooltipBgColor: AppTheme.spaceDark.withOpacity(0.85),
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((ts) {
+                        final price = ts.y;
+                        final diffPct =
+                            ((price - spots.first.y) / spots.first.y) * 100;
+                        return LineTooltipItem(
+                          '${MarketUtils.formatPrice(price)}\n${diffPct >= 0 ? '+' : ''}${diffPct.toStringAsFixed(1)}%',
+                          AppTheme.bodySmall.copyWith(color: AppTheme.white),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildTimeframeChips(),
+          const SizedBox(height: 8),
+          _buildVolatilityHeatbar(spots),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimeframeChips() {
+    final items = const [
+      Timeframe.h1,
+      Timeframe.d1,
+      Timeframe.w1,
+      Timeframe.m1,
+      Timeframe.ytd,
+      Timeframe.all,
+    ];
+    String label(Timeframe t) {
+      switch (t) {
+        case Timeframe.h1:
+          return '1H';
+        case Timeframe.d1:
+          return '1D';
+        case Timeframe.w1:
+          return '1W';
+        case Timeframe.m1:
+          return '1M';
+        case Timeframe.ytd:
+          return 'YTD';
+        case Timeframe.all:
+          return 'ALL';
+      }
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Row(
+          children: [
+            for (final t in items) ...[
+              GestureDetector(
+                onTap: () => setState(() => _selectedTimeframe = t),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: _selectedTimeframe == t
+                        ? AppTheme.cosmicBlue.withOpacity(0.2)
+                        : AppTheme.spaceDark,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _selectedTimeframe == t
+                          ? AppTheme.cosmicBlue
+                          : AppTheme.cosmicBlue.withOpacity(0.25),
+                    ),
+                  ),
+                  child: Text(
+                    label(t),
+                    style: AppTheme.bodySmall.copyWith(
+                      color: _selectedTimeframe == t
+                          ? AppTheme.cosmicBlue
+                          : AppTheme.gray400,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // _buildTimeframeLabel removed per request
+
+  List<FlSpot> _generateSeriesForTimeframe(double anchor, Timeframe t) {
+    switch (t) {
+      case Timeframe.h1:
+        return _generateIntradaySeries(anchor, totalPoints: 60); // 60 minutes
+      case Timeframe.d1:
+        return _generateIntradaySeries(anchor, totalPoints: 24); // 24 hours
+      case Timeframe.w1:
+        return _generateDailySeries(anchor, days: 7);
+      case Timeframe.m1:
+        return _generateDailySeries(anchor, days: 30);
+      case Timeframe.ytd:
+        return _generateYearSeries(anchor, points: 220);
+      case Timeframe.all:
+        return _generateYearSeries(anchor, points: 500);
+    }
+  }
+
+  List<FlSpot> _generateIntradaySeries(double anchor, {int totalPoints = 60}) {
+    final rand = math.Random(_selectedAsset.hashCode ^ totalPoints);
+    double value = anchor * (0.98 + rand.nextDouble() * 0.04);
+    final spots = <FlSpot>[];
+    for (int i = 0; i < totalPoints; i++) {
+      final drift = 1 + (rand.nextDouble() - 0.5) * 0.004;
+      final noise = (rand.nextDouble() - 0.5) * (anchor * 0.0007);
+      value = (value * drift) + noise;
+      value = value.clamp(anchor * 0.95, anchor * 1.05);
+      spots.add(FlSpot(i.toDouble(), value));
+    }
+    return spots;
+  }
+
+  List<FlSpot> _generateDailySeries(double anchor, {int days = 30}) {
+    final rand = math.Random(_selectedAsset.hashCode ^ days);
+    double value = anchor * (0.9 + rand.nextDouble() * 0.2);
+    final spots = <FlSpot>[];
+    for (int i = 0; i < days; i++) {
+      final drift = 1 + (rand.nextDouble() - 0.48) * 0.02;
+      final noise = (rand.nextDouble() - 0.5) * (anchor * 0.002);
+      value = (value * drift) + noise;
+      value = value.clamp(anchor * 0.7, anchor * 1.4);
+      spots.add(FlSpot(i.toDouble(), value));
+    }
+    return spots;
+  }
+
+  List<FlSpot> _generateYearSeries(double anchor, {int points = 64}) {
+    // Generate friendly pseudo data around anchor for UI smoothness
+    final rand = math.Random(_selectedAsset.hashCode);
+    double value =
+        anchor * (0.7 + rand.nextDouble() * 0.6); // start between -30%..+30%
+    final spots = <FlSpot>[];
+    for (int i = 0; i < points; i++) {
+      final drift = 1 + (rand.nextDouble() - 0.48) * 0.02; // gentle trend
+      final noise =
+          (rand.nextDouble() - 0.5) * (anchor * 0.0025); // soft volatility
+      value = (value * drift) + noise;
+      value = value.clamp(anchor * 0.45, anchor * 1.6);
+      spots.add(FlSpot(i.toDouble(), value));
+    }
+    return spots;
+  }
+
+  Widget _buildVolatilityHeatbar(List<FlSpot> spots) {
+    // Simple rolling stddev heat: split into months (12 buckets)
+    final bucket = (spots.length / 12).floor().clamp(1, spots.length);
+    final vols = <double>[];
+    for (int i = 0; i < 12; i++) {
+      final start = (i * bucket).clamp(0, spots.length - 1);
+      final end = math.min(spots.length, start + bucket);
+      final slice = spots.sublist(start, end);
+      final mean = slice.map((e) => e.y).reduce((a, b) => a + b) / slice.length;
+      double varSum = 0;
+      for (final s in slice) {
+        final d = s.y - mean;
+        varSum += d * d;
+      }
+      final std = math.sqrt(varSum / slice.length);
+      vols.add(std);
+    }
+    final maxVol = vols.reduce(math.max).clamp(0.0001, double.infinity);
+
+    return Row(
+      children: List.generate(12, (i) {
+        final t = (vols[i] / maxVol).clamp(0.0, 1.0);
+        final color = Color.lerp(
+          AppTheme.cosmicBlue.withOpacity(0.25),
+          AppTheme.warningOrange.withOpacity(0.8),
+          t,
+        )!;
+        return Expanded(
+          child: Container(
+            height: 6,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+  // (removed duplicate enum defined earlier)
 
   Widget _buildAmountSelection() {
     return Column(
