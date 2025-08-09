@@ -1,6 +1,7 @@
 import '../constants/api_constants.dart';
 import '../../shared/models/market_models.dart';
 import 'api_client.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class MarketApiService {
   final ApiClient _apiClient;
@@ -118,5 +119,35 @@ class MarketApiService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  Future<List<FlSpot>> getCandles({
+    required String market,
+    required String interval, // e.g. PT30M, PT1H, P1D
+    int limit =100,
+  }) async {
+    final url =
+        'https://app.extended.exchange/api/v1/info/candles/$market/trades';
+    final resp = await _apiClient.get<Map<String, dynamic>>(
+      url,
+      queryParameters: {'interval': interval, 'limit': limit},
+    );
+
+    if (resp.data == null || resp.data!['status'] != 'OK') {
+      throw ApiException(
+        message: 'Failed to fetch candles',
+        statusCode: 500,
+        type: ApiExceptionType.server,
+      );
+    }
+
+    final List<dynamic> data = resp.data!['data'] ?? [];
+    final spots = <FlSpot>[];
+    for (final item in data) {
+      final cStr = item['c']?.toString() ?? '0';
+      final close = double.tryParse(cStr) ?? 0.0;
+      spots.add(FlSpot(spots.length.toDouble(), close));
+    }
+    return spots;
   }
 }

@@ -47,7 +47,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
   final TextEditingController _customAmountController = TextEditingController();
 
   // Timeframe state for the chart
-  Timeframe _selectedTimeframe = Timeframe.ytd;
+  Timeframe _selectedTimeframe = Timeframe.d1;
 
   @override
   void initState() {
@@ -290,9 +290,11 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
   // ————————————————————————————————————————————————
 
   Widget _buildSparklineHeader(List<Market> markets) {
-    final m = markets.where((mk) => mk.name == _selectedAsset).firstOrNull;
-    // Generate a friendly pseudo YTD series from current price for UI
-    final points = _generateYearSeries(m?.price ?? 50000);
+    // Note: header sparkline uses pseudo data around an anchor value
+    final anchor =
+        markets.where((mk) => mk.name == _selectedAsset).firstOrNull?.price ??
+        50000.0;
+    final points = _generateYearSeries(anchor);
     final color = (points.last.y >= points.first.y)
         ? AppTheme.energyGreen
         : AppTheme.warningOrange;
@@ -356,153 +358,229 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
   Widget _buildYearViewSection(List<Market> markets) {
     if (!_showYearView) return const SizedBox.shrink();
 
-    final m = markets.where((mk) => mk.name == _selectedAsset).firstOrNull;
-    final spots = _generateSeriesForTimeframe(
-      m?.price ?? 50000,
-      _selectedTimeframe,
+    // final m = markets.where((mk) => mk.name == _selectedAsset).firstOrNull;
+    final interval = _selectedTimeframe == Timeframe.h1 ? 'PT1H' : 'P1D';
+    final limit = _selectedTimeframe == Timeframe.h1 ? 30 : 60;
+    final candlesAsync = ref.watch(
+      priceHistoryProvider((
+        market: _selectedAsset,
+        interval: interval,
+        limit: limit,
+      )),
     );
 
-    final up = spots.last.y >= spots.first.y;
-    final trendColor = up ? AppTheme.energyGreen : AppTheme.warningOrange;
-    final changePct = ((spots.last.y - spots.first.y) / spots.first.y) * 100;
-    final changeText = '${up ? '+' : ''}${changePct.toStringAsFixed(1)}%';
-    final high = spots.map((e) => e.y).reduce(math.max);
-    final low = spots.map((e) => e.y).reduce(math.min);
+    return candlesAsync.when(
+      data: (spots) {
+        if (spots.isEmpty) {
+          return _buildEmptyChartCard();
+        }
+        final up = spots.last.y >= spots.first.y;
+        final trendColor = up ? AppTheme.energyGreen : AppTheme.warningOrange;
+        final changePct =
+            ((spots.last.y - spots.first.y) / spots.first.y) * 100;
+        final changeText = '${up ? '+' : ''}${changePct.toStringAsFixed(1)}%';
+        final high = spots.map((e) => e.y).reduce(math.max);
+        final low = spots.map((e) => e.y).reduce(math.min);
+        final minY = (low * 0.98);
+        final maxY = (high * 1.02);
+        final yInterval = ((maxY - minY) / 5).clamp(0.0001, double.infinity);
 
-    String timeframeLabel() {
-      switch (_selectedTimeframe) {
-        case Timeframe.h1:
-          return 'Past hour';
-        case Timeframe.d1:
-          return 'Today';
-        case Timeframe.w1:
-          return 'This week';
-        case Timeframe.m1:
-          return 'This month';
-        case Timeframe.ytd:
-          return 'This year';
-        case Timeframe.all:
-          return 'All time';
-      }
-    }
+        String timeframeLabel() {
+          switch (_selectedTimeframe) {
+            case Timeframe.h1:
+              return 'Past hour';
+            case Timeframe.d1:
+              return 'Today';
+            case Timeframe.w1:
+              return 'This week';
+            case Timeframe.m1:
+              return 'This month';
+            case Timeframe.ytd:
+              return 'This year';
+            case Timeframe.all:
+              return 'All time';
+          }
+        }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.spaceDeep,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${timeframeLabel()} $changeText',
-                style: AppTheme.bodyMedium.copyWith(
-                  color: trendColor,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                'High ${MarketUtils.formatPrice(high)} • Low ${MarketUtils.formatPrice(low)}',
-                style: AppTheme.bodySmall.copyWith(color: AppTheme.gray400),
-              ),
-            ],
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.spaceDeep,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 180,
-            child: LineChart(
-              LineChartData(
-                minX: 0,
-                maxX: spots.length.toDouble() - 1,
-                gridData: const FlGridData(show: false),
-                titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 20,
-                      interval: (spots.length / 4).floorToDouble().clamp(
-                        1.0,
-                        double.infinity,
-                      ),
-                      getTitlesWidget: (value, meta) => const SizedBox.shrink(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${timeframeLabel()} $changeText',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: trendColor,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  leftTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    color: trendColor,
-                    barWidth: 3,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          trendColor.withOpacity(0.25),
-                          Colors.transparent,
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                    shadow: Shadow(
-                      color: trendColor.withOpacity(0.3),
-                      blurRadius: 8,
-                    ),
+                  Text(
+                    'High ${MarketUtils.formatPrice(high)} • Low ${MarketUtils.formatPrice(low)}',
+                    style: AppTheme.bodySmall.copyWith(color: AppTheme.gray400),
                   ),
                 ],
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    tooltipBgColor: AppTheme.spaceDark.withOpacity(0.85),
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((ts) {
-                        final price = ts.y;
-                        final diffPct =
-                            ((price - spots.first.y) / spots.first.y) * 100;
-                        return LineTooltipItem(
-                          '${MarketUtils.formatPrice(price)}\n${diffPct >= 0 ? '+' : ''}${diffPct.toStringAsFixed(1)}%',
-                          AppTheme.bodySmall.copyWith(color: AppTheme.white),
-                        );
-                      }).toList();
-                    },
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 180,
+                child: LineChart(
+                  LineChartData(
+                    minX: 0,
+                    maxX: spots.length.toDouble() - 1,
+                    gridData: const FlGridData(show: false),
+                    titlesData: FlTitlesData(
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 20,
+                          interval: (spots.length / 4).floorToDouble().clamp(
+                            1.0,
+                            double.infinity,
+                          ),
+                          getTitlesWidget: (value, meta) =>
+                              const SizedBox.shrink(),
+                        ),
+                      ),
+                      leftTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          interval: yInterval,
+                          getTitlesWidget: (value, meta) {
+                            return Text(
+                              MarketUtils.formatPrice(value),
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.gray500,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: spots,
+                        isCurved: true,
+                        color: trendColor,
+                        barWidth: 3,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            colors: [
+                              trendColor.withOpacity(0.25),
+                              Colors.transparent,
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                        shadow: Shadow(
+                          color: trendColor.withOpacity(0.3),
+                          blurRadius: 8,
+                        ),
+                      ),
+                    ],
+                    lineTouchData: LineTouchData(
+                      touchTooltipData: LineTouchTooltipData(
+                        tooltipBgColor: AppTheme.spaceDark.withOpacity(0.85),
+                        getTooltipItems: (touchedSpots) {
+                          return touchedSpots.map((ts) {
+                            final price = ts.y;
+                            final diffPct =
+                                ((price - spots.first.y) / spots.first.y) * 100;
+                            return LineTooltipItem(
+                              '${MarketUtils.formatPrice(price)}\n${diffPct >= 0 ? '+' : ''}${diffPct.toStringAsFixed(1)}%',
+                              AppTheme.bodySmall.copyWith(
+                                color: AppTheme.white,
+                              ),
+                            );
+                          }).toList();
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+              const SizedBox(height: 8),
+              _buildTimeframeChips(),
+              const SizedBox(height: 8),
+              _buildVolatilityHeatbar(spots),
+            ],
           ),
-          const SizedBox(height: 8),
-          _buildTimeframeChips(),
-          const SizedBox(height: 8),
-          _buildVolatilityHeatbar(spots),
-        ],
-      ),
+        );
+      },
+      loading: () => _buildLoadingChartCard(),
+      error: (e, st) => _buildErrorChartCard(),
     );
   }
+
+  Widget _buildLoadingChartCard() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.spaceDeep,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
+    ),
+    height: 210,
+    child: const Center(
+      child: CircularProgressIndicator(color: AppTheme.cosmicBlue),
+    ),
+  );
+
+  Widget _buildEmptyChartCard() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.spaceDeep,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
+    ),
+    height: 210,
+    child: Center(
+      child: Text(
+        'No data yet',
+        style: AppTheme.bodySmall.copyWith(color: AppTheme.gray500),
+      ),
+    ),
+  );
+
+  Widget _buildErrorChartCard() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.spaceDeep,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppTheme.dangerRed.withOpacity(0.3)),
+    ),
+    height: 210,
+    child: Center(
+      child: Text(
+        'Failed to load chart',
+        style: AppTheme.bodySmall.copyWith(color: AppTheme.dangerRed),
+      ),
+    ),
+  );
 
   Widget _buildTimeframeChips() {
     final items = const [
       Timeframe.h1,
       Timeframe.d1,
-      Timeframe.w1,
-      Timeframe.m1,
-      Timeframe.ytd,
-      Timeframe.all,
+      // Timeframe.w1, // disabled for now
+      // Timeframe.m1, // disabled for now
     ];
     String label(Timeframe t) {
       switch (t) {
@@ -514,10 +592,9 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
           return '1W';
         case Timeframe.m1:
           return '1M';
-        case Timeframe.ytd:
-          return 'YTD';
-        case Timeframe.all:
-          return 'ALL';
+
+        default:
+          return '';
       }
     }
 
@@ -568,50 +645,16 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
 
   // _buildTimeframeLabel removed per request
 
-  List<FlSpot> _generateSeriesForTimeframe(double anchor, Timeframe t) {
-    switch (t) {
-      case Timeframe.h1:
-        return _generateIntradaySeries(anchor, totalPoints: 60); // 60 minutes
-      case Timeframe.d1:
-        return _generateIntradaySeries(anchor, totalPoints: 24); // 24 hours
-      case Timeframe.w1:
-        return _generateDailySeries(anchor, days: 7);
-      case Timeframe.m1:
-        return _generateDailySeries(anchor, days: 30);
-      case Timeframe.ytd:
-        return _generateYearSeries(anchor, points: 220);
-      case Timeframe.all:
-        return _generateYearSeries(anchor, points: 500);
-    }
-  }
+  // Deprecated: previously used for pseudo series (still used by sparkline header only)
+  // Removed unused shim for timeframe series
+  // List<FlSpot> _generateSeriesForTimeframe(double anchor, Timeframe t) =>
+  //     _generateYearSeries(anchor);
 
-  List<FlSpot> _generateIntradaySeries(double anchor, {int totalPoints = 60}) {
-    final rand = math.Random(_selectedAsset.hashCode ^ totalPoints);
-    double value = anchor * (0.98 + rand.nextDouble() * 0.04);
-    final spots = <FlSpot>[];
-    for (int i = 0; i < totalPoints; i++) {
-      final drift = 1 + (rand.nextDouble() - 0.5) * 0.004;
-      final noise = (rand.nextDouble() - 0.5) * (anchor * 0.0007);
-      value = (value * drift) + noise;
-      value = value.clamp(anchor * 0.95, anchor * 1.05);
-      spots.add(FlSpot(i.toDouble(), value));
-    }
-    return spots;
-  }
+  // Deprecated helper (not used after switching to real data)
+  // List<FlSpot> _generateIntradaySeries(double anchor, {int totalPoints = 60}) { ... }
 
-  List<FlSpot> _generateDailySeries(double anchor, {int days = 30}) {
-    final rand = math.Random(_selectedAsset.hashCode ^ days);
-    double value = anchor * (0.9 + rand.nextDouble() * 0.2);
-    final spots = <FlSpot>[];
-    for (int i = 0; i < days; i++) {
-      final drift = 1 + (rand.nextDouble() - 0.48) * 0.02;
-      final noise = (rand.nextDouble() - 0.5) * (anchor * 0.002);
-      value = (value * drift) + noise;
-      value = value.clamp(anchor * 0.7, anchor * 1.4);
-      spots.add(FlSpot(i.toDouble(), value));
-    }
-    return spots;
-  }
+  // Deprecated helper (not used after switching to real data)
+  // List<FlSpot> _generateDailySeries(double anchor, {int days = 30}) { ... }
 
   List<FlSpot> _generateYearSeries(double anchor, {int points = 64}) {
     // Generate friendly pseudo data around anchor for UI smoothness

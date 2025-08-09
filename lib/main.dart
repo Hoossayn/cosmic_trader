@@ -32,7 +32,6 @@ void main() async {
   // Lock orientation to portrait
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-
   runApp(const ProviderScope(child: CosmicTraderApp()));
 }
 
@@ -43,7 +42,9 @@ class CosmicTraderApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
-    final hasWallets = ref.watch(walletsProvider.select((v) => v.wallets.isNotEmpty));
+    final hasWallets = ref.watch(
+      walletsProvider.select((v) => v.wallets.isNotEmpty),
+    );
 
     print('has wallets $hasWallets');
 

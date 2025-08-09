@@ -5,7 +5,7 @@ import '../../core/network/positions_api_service.dart';
 import '../../core/network/orders_api_service.dart';
 import '../../shared/models/market_models.dart';
 import '../../shared/models/position_models.dart';
-import '../../shared/models/order_models.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 // API Client Provider
 final apiClientProvider = Provider<ApiClient>((ref) {
@@ -98,3 +98,16 @@ final marketCategoriesProvider = FutureProvider<List<String>>((ref) async {
   return categories;
 });
 
+// Price history provider using Extended candles
+final priceHistoryProvider =
+    FutureProvider.family<
+      List<FlSpot>,
+      ({String market, String interval, int limit})
+    >((ref, args) async {
+      final service = ref.watch(marketApiServiceProvider);
+      return await service.getCandles(
+        market: args.market,
+        interval: args.interval,
+        limit: args.limit,
+      );
+    });
