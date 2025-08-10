@@ -17,7 +17,6 @@ import '../../shared/providers/api_providers.dart';
 import '../../shared/models/market_models.dart';
 import '../../shared/models/order_models.dart';
 import '../../shared/utils/market_utils.dart';
-// import 'package:starknet_provider/starknet_provider.dart';
 
 enum Timeframe { h1, d1, w1, m1, ytd, all }
 
@@ -164,7 +163,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
           const SizedBox(height: 24),
           _buildSparklineHeader(markets),
           const SizedBox(height: 16),
-          _buildYearViewSection(markets),
+          _buildYearViewSection(),
           const SizedBox(height: 24),
           _buildDirectionSelection(),
           const SizedBox(height: 24),
@@ -355,12 +354,14 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
     );
   }
 
-  Widget _buildYearViewSection(List<Market> markets) {
+  Widget _buildYearViewSection() {
     if (!_showYearView) return const SizedBox.shrink();
 
-    // final m = markets.where((mk) => mk.name == _selectedAsset).firstOrNull;
+    // Get current market price
+    final currentPrice = _getCurrentMarketPrice();
+
     final interval = _selectedTimeframe == Timeframe.h1 ? 'PT1H' : 'P1D';
-    final limit = _selectedTimeframe == Timeframe.h1 ? 30 : 60;
+    final limit = _selectedTimeframe == Timeframe.h1 ? 90 : 330;
     final candlesAsync = ref.watch(
       priceHistoryProvider((
         market: _selectedAsset,
@@ -374,16 +375,34 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
         if (spots.isEmpty) {
           return _buildEmptyChartCard();
         }
-        final up = spots.last.y >= spots.first.y;
+
+        // Get the actual current price from market data or use last spot
+        final actualCurrentPrice = currentPrice ?? spots.last.y;
+
+        final up = actualCurrentPrice >= spots.first.y;
         final trendColor = up ? AppTheme.energyGreen : AppTheme.warningOrange;
         final changePct =
-            ((spots.last.y - spots.first.y) / spots.first.y) * 100;
+            ((actualCurrentPrice - spots.first.y) / spots.first.y) * 100;
         final changeText = '${up ? '+' : ''}${changePct.toStringAsFixed(1)}%';
         final high = spots.map((e) => e.y).reduce(math.max);
         final low = spots.map((e) => e.y).reduce(math.min);
-        final minY = (low * 0.98);
-        final maxY = (high * 1.02);
-        final yInterval = ((maxY - minY) / 5).clamp(0.0001, double.infinity);
+
+        // Ensure bounds include current price
+        final chartLow = math.min(low, actualCurrentPrice);
+        final chartHigh = math.max(high, actualCurrentPrice);
+
+        // Add padding for better visualization
+        final padding = (chartHigh - chartLow) * 0.05;
+        final minY = chartLow - padding;
+        final maxY = chartHigh + padding;
+
+        // Create evenly spaced price levels
+        const numberOfPriceLevels = 5;
+        final priceStep = (maxY - minY) / (numberOfPriceLevels - 1);
+        final priceLevels = List.generate(
+          numberOfPriceLevels,
+          (i) => minY + (priceStep * i),
+        );
 
         String timeframeLabel() {
           switch (_selectedTimeframe) {
@@ -429,98 +448,196 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
                 ],
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                height: 180,
-                child: LineChart(
-                  LineChartData(
-                    minX: 0,
-                    maxX: spots.length.toDouble() - 1,
-                    gridData: const FlGridData(show: false),
-                    titlesData: FlTitlesData(
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 20,
-                          interval: (spots.length / 4).floorToDouble().clamp(
-                            1.0,
-                            double.infinity,
-                          ),
-                          getTitlesWidget: (value, meta) =>
-                              const SizedBox.shrink(),
-                        ),
-                      ),
-                      leftTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 40,
-                          interval: yInterval,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              MarketUtils.formatPrice(value),
-                              style: AppTheme.bodySmall.copyWith(
-                                color: AppTheme.gray500,
-                              ),
+              Stack(
+                children: [
+                  SizedBox(
+                    height: 180,
+                    child: LineChart(
+                      LineChartData(
+                        minX: 0,
+                        maxX: spots.length.toDouble() - 1,
+                        minY: minY,
+                        maxY: maxY,
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: priceStep,
+                          getDrawingHorizontalLine: (value) {
+                            // Highlight current price line
+                            final isCurrentPrice =
+                                (value - actualCurrentPrice).abs() <
+                                priceStep * 0.1;
+                            return FlLine(
+                              color: isCurrentPrice
+                                  ? trendColor.withOpacity(0.5)
+                                  : AppTheme.gray600.withOpacity(0.2),
+                              strokeWidth: isCurrentPrice ? 2 : 1,
+                              dashArray: isCurrentPrice ? null : [5, 5],
                             );
                           },
                         ),
-                      ),
-                      topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: spots,
-                        isCurved: true,
-                        color: trendColor,
-                        barWidth: 3,
-                        dotData: const FlDotData(show: false),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          gradient: LinearGradient(
-                            colors: [
-                              trendColor.withOpacity(0.25),
-                              Colors.transparent,
-                            ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
+                        titlesData: FlTitlesData(
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 20,
+                              interval: (spots.length / 4)
+                                  .floorToDouble()
+                                  .clamp(1.0, double.infinity),
+                              getTitlesWidget: (value, meta) =>
+                                  const SizedBox.shrink(),
+                            ),
+                          ),
+                          leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 60,
+                              getTitlesWidget: (value, meta) {
+                                // Find if this is a price level we want to show
+                                final isLevel = priceLevels.any(
+                                  (level) =>
+                                      (level - value).abs() < priceStep * 0.1,
+                                );
+
+                                // Check if this is near the current price
+                                final isCurrentPrice =
+                                    (value - actualCurrentPrice).abs() <
+                                    priceStep * 0.1;
+
+                                if (!isLevel) return const SizedBox.shrink();
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isCurrentPrice
+                                        ? trendColor.withOpacity(0.2)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: isCurrentPrice
+                                        ? Border.all(
+                                            color: trendColor.withOpacity(0.5),
+                                          )
+                                        : null,
+                                  ),
+                                  child: Text(
+                                    MarketUtils.formatPrice(value),
+                                    style: AppTheme.bodySmall.copyWith(
+                                      color: isCurrentPrice
+                                          ? trendColor
+                                          : AppTheme.gray500,
+                                      fontWeight: isCurrentPrice
+                                          ? FontWeight.w600
+                                          : FontWeight.normal,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
                           ),
                         ),
-                        shadow: Shadow(
-                          color: trendColor.withOpacity(0.3),
-                          blurRadius: 8,
-                        ),
-                      ),
-                    ],
-                    lineTouchData: LineTouchData(
-                      touchTooltipData: LineTouchTooltipData(
-                        tooltipBgColor: AppTheme.spaceDark.withOpacity(0.85),
-                        getTooltipItems: (touchedSpots) {
-                          return touchedSpots.map((ts) {
-                            final price = ts.y;
-                            final diffPct =
-                                ((price - spots.first.y) / spots.first.y) * 100;
-                            return LineTooltipItem(
-                              '${MarketUtils.formatPrice(price)}\n${diffPct >= 0 ? '+' : ''}${diffPct.toStringAsFixed(1)}%',
-                              AppTheme.bodySmall.copyWith(
-                                color: AppTheme.white,
+                        borderData: FlBorderData(show: false),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: spots,
+                            isCurved: true,
+                            color: trendColor,
+                            barWidth: 3,
+                            dotData: FlDotData(
+                              show: true,
+                              checkToShowDot: (spot, barData) {
+                                // Only show dot for the last point
+                                return spot.x == spots.length - 1;
+                              },
+                              getDotPainter: (spot, percent, barData, index) {
+                                return FlDotCirclePainter(
+                                  radius: 4,
+                                  color: trendColor,
+                                  strokeWidth: 2,
+                                  strokeColor: AppTheme.white,
+                                );
+                              },
+                            ),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              gradient: LinearGradient(
+                                colors: [
+                                  trendColor.withOpacity(0.25),
+                                  Colors.transparent,
+                                ],
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
                               ),
-                            );
-                          }).toList();
-                        },
+                            ),
+                            shadow: Shadow(
+                              color: trendColor.withOpacity(0.3),
+                              blurRadius: 8,
+                            ),
+                          ),
+                        ],
+                        extraLinesData: ExtraLinesData(
+                          horizontalLines: [
+                            HorizontalLine(
+                              y: actualCurrentPrice,
+                              color: trendColor,
+                              strokeWidth: 1,
+                              dashArray: [5, 3],
+                              label: HorizontalLineLabel(
+                                show: true,
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(
+                                  right: 2,
+                                  bottom: 2,
+                                ),
+                                style: AppTheme.bodySmall.copyWith(
+                                  color: AppTheme.white,
+                                  fontWeight: FontWeight.w600,
+                                  backgroundColor: trendColor,
+                                ),
+                                labelResolver: (line) =>
+                                    ' ${MarketUtils.formatPrice(line.y)} ',
+                              ),
+                            ),
+                          ],
+                        ),
+                        lineTouchData: LineTouchData(
+                          touchTooltipData: LineTouchTooltipData(
+                            tooltipBgColor: AppTheme.spaceDark.withOpacity(
+                              0.85,
+                            ),
+                            getTooltipItems: (touchedSpots) {
+                              return touchedSpots.map((ts) {
+                                final price = ts.y;
+                                final diffPct =
+                                    ((price - spots.first.y) / spots.first.y) *
+                                    100;
+                                return LineTooltipItem(
+                                  '${MarketUtils.formatPrice(price)}\n${diffPct >= 0 ? '+' : ''}${diffPct.toStringAsFixed(1)}%',
+                                  AppTheme.bodySmall.copyWith(
+                                    color: AppTheme.white,
+                                  ),
+                                );
+                              }).toList();
+                            },
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
               const SizedBox(height: 8),
               _buildTimeframeChips(),
               const SizedBox(height: 8),
-              _buildVolatilityHeatbar(spots),
+              _buildVolatilityHeatBar(spots),
             ],
           ),
         );
@@ -673,7 +790,7 @@ class _TradingScreenState extends ConsumerState<TradingScreen>
     return spots;
   }
 
-  Widget _buildVolatilityHeatbar(List<FlSpot> spots) {
+  Widget _buildVolatilityHeatBar(List<FlSpot> spots) {
     // Simple rolling stddev heat: split into months (12 buckets)
     final bucket = (spots.length / 12).floor().clamp(1, spots.length);
     final vols = <double>[];
