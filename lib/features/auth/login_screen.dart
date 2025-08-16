@@ -20,6 +20,11 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isSubmitting = false;
   bool _rememberMe = false;
 
+  final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
+  bool _emailHasFocus = false;
+  bool _passwordHasFocus = false;
+
   late AnimationController _starAnimationController;
   late AnimationController _planetAnimationController;
 
@@ -34,12 +39,27 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(seconds: 8),
       vsync: this,
     )..repeat();
+
+    // Focus listeners
+    _emailFocusNode.addListener(() {
+      setState(() {
+        _emailHasFocus = _emailFocusNode.hasFocus;
+      });
+    });
+
+    _passwordFocusNode.addListener(() {
+      setState(() {
+        _passwordHasFocus = _passwordFocusNode.hasFocus;
+      });
+    });
   }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     _starAnimationController.dispose();
     _planetAnimationController.dispose();
     super.dispose();
@@ -60,13 +80,13 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   InputDecoration _inputDecoration(
-    String label,
-    IconData icon, {
+    String hint, {
     Widget? suffix,
+    bool hasFocus = false,
+    bool hasText = false,
   }) {
     return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: AppTheme.gray400),
+      hintText: (hasFocus || hasText) ? null : hint,
       suffixIcon: suffix,
       filled: true,
       fillColor: AppTheme.spaceDeep.withOpacity(0.8),
@@ -86,7 +106,8 @@ class _LoginScreenState extends State<LoginScreen>
         borderSide: const BorderSide(color: AppTheme.dangerRed),
         borderRadius: BorderRadius.circular(12),
       ),
-      labelStyle: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+      hintStyle: AppTheme.bodyMedium.copyWith(color: AppTheme.gray400),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 
@@ -293,17 +314,22 @@ class _LoginScreenState extends State<LoginScreen>
           // Email field
           TextFormField(
             controller: _emailController,
+            focusNode: _emailFocusNode,
             keyboardType: TextInputType.emailAddress,
             style: AppTheme.bodyMedium,
             decoration: _inputDecoration(
               'Email or Username',
-              Icons.person_outline,
+              hasFocus: _emailHasFocus,
+              hasText: _emailController.text.isNotEmpty,
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
                 return 'Email or username is required';
               }
               return null;
+            },
+            onChanged: (value) {
+              setState(() {}); // Rebuild to update hint text visibility
             },
           ).animate().slideX(begin: -0.3, duration: 600.ms, delay: 200.ms),
 
@@ -312,11 +338,13 @@ class _LoginScreenState extends State<LoginScreen>
           // Password field
           TextFormField(
             controller: _passwordController,
+            focusNode: _passwordFocusNode,
             obscureText: !_isPasswordVisible,
             style: AppTheme.bodyMedium,
             decoration: _inputDecoration(
               'Password',
-              Icons.lock_outline,
+              hasFocus: _passwordHasFocus,
+              hasText: _passwordController.text.isNotEmpty,
               suffix: IconButton(
                 onPressed: () =>
                     setState(() => _isPasswordVisible = !_isPasswordVisible),
@@ -331,6 +359,9 @@ class _LoginScreenState extends State<LoginScreen>
                 return 'Password is required';
               }
               return null;
+            },
+            onChanged: (value) {
+              setState(() {}); // Rebuild to update hint text visibility
             },
           ).animate().slideX(begin: 0.3, duration: 600.ms, delay: 300.ms),
 
