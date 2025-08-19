@@ -84,7 +84,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: Align(
                     alignment: Alignment.topRight,
                     child: TextButton(
-                      onPressed: () => context.go('/planet'),
+                      onPressed: () => context.go('/login'),
                       child: Text(
                         'Skip',
                         style: AppTheme.bodyMedium.copyWith(

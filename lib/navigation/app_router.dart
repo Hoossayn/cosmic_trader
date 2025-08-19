@@ -11,7 +11,7 @@ import '../features/profile/settings_screen.dart';
 import '../features/profile/wallet_screen.dart';
 import '../shared/widgets/main_navigation.dart';
 import '../features/auth/login_screen.dart';
-import '../features/auth/register_screen.dart';
+import '../features/auth/registration_flow_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -33,7 +33,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         name: 'register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) => const RegistrationFlowScreen(),
       ),
 
       // Main shell with bottom navigation

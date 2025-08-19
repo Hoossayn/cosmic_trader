@@ -3,12 +3,14 @@ import 'dart:math' as math;
 import '../../core/theme/app_theme.dart';
 import 'package:open_simplex_2/open_simplex_2.dart';
 import '../models/nft_model.dart';
+import '../models/planet_model.dart';
 
 class PlanetWidget extends StatefulWidget {
   final double size;
   final int healthLevel; // 0-100
   final bool showOrbitalElements;
   final List<NFT>? ownedNFTs;
+  final PlanetThemeConfig? planetTheme; // Optional theme override
 
   const PlanetWidget({
     super.key,
@@ -16,6 +18,7 @@ class PlanetWidget extends StatefulWidget {
     required this.healthLevel,
     this.showOrbitalElements = true,
     this.ownedNFTs,
+    this.planetTheme,
   });
 
   @override
@@ -93,18 +96,19 @@ class _PlanetWidgetState extends State<PlanetWidget>
             },
           ),
 
-          CustomPaint(
-            size: Size(widget.size, widget.size),
-            painter: _RingPainter(
-              ringColor: _ringColorForHealth(),
-              planetDiameter: planetDiameter,
-              thickness: 18,
-              innerScale: 1.15,
-              outerScale: 1.65,
-              tiltRadians: ringTiltRadians,
-              drawFrontSegment: false,
+          if (widget.planetTheme?.hasRings ?? true)
+            CustomPaint(
+              size: Size(widget.size, widget.size),
+              painter: _RingPainter(
+                ringColor: _ringColorForHealth(),
+                planetDiameter: planetDiameter,
+                thickness: 18,
+                innerScale: 1.15,
+                outerScale: 1.65,
+                tiltRadians: ringTiltRadians,
+                drawFrontSegment: false,
+              ),
             ),
-          ),
 
           SizedBox(
             width: planetDiameter,
@@ -112,10 +116,11 @@ class _PlanetWidgetState extends State<PlanetWidget>
             child: ClipOval(
               child: CustomPaint(
                 painter: _PlanetSpherePainter(
-                  baseColor: _getHealthColor(),
+                  baseColor: widget.planetTheme?.baseColor ?? _getHealthColor(),
                   lightDirection: const Offset(-0.6, -0.5),
                   noiseSeed: 7777, // stable seed to keep terrain consistent
                   healthLevel: widget.healthLevel,
+                  overridePalette: widget.planetTheme?.palette,
                 ),
                 child: AnimatedBuilder(
                   animation: _cloudsController,
@@ -136,22 +141,24 @@ class _PlanetWidgetState extends State<PlanetWidget>
             ),
           ),
 
-          CustomPaint(
-            size: Size(widget.size, widget.size),
-            painter: _RingPainter(
-              ringColor: widget.healthLevel >= 60
-                  ? _ringColorForHealth()
-                  : AppTheme.warningOrange.withOpacity(0.45),
-              planetDiameter: planetDiameter,
-              thickness: widget.healthLevel >= 60 ? 18 : 10,
-              innerScale: 1.15,
-              outerScale: 1.65,
-              tiltRadians: ringTiltRadians,
-              drawFrontSegment: true,
+          if (widget.planetTheme?.hasRings ?? true)
+            CustomPaint(
+              size: Size(widget.size, widget.size),
+              painter: _RingPainter(
+                ringColor: widget.healthLevel >= 60
+                    ? _ringColorForHealth()
+                    : AppTheme.warningOrange.withOpacity(0.45),
+                planetDiameter: planetDiameter,
+                thickness: widget.healthLevel >= 60 ? 18 : 10,
+                innerScale: 1.15,
+                outerScale: 1.65,
+                tiltRadians: ringTiltRadians,
+                drawFrontSegment: true,
+              ),
             ),
-          ),
 
-          if (widget.showOrbitalElements) ..._buildMoons(),
+          if (widget.showOrbitalElements)
+            ..._buildMoons(widget.planetTheme?.moonCount ?? 2),
           if (widget.showOrbitalElements) ..._buildOrbitalElements(),
           if (widget.ownedNFTs != null) ..._buildNFTDecorations(),
 
@@ -243,9 +250,9 @@ class _PlanetWidgetState extends State<PlanetWidget>
     ];
   }
 
-  List<Widget> _buildMoons() {
+  List<Widget> _buildMoons(int count) {
     final moons = <Widget>[];
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < count; i++) {
       moons.add(
         AnimatedBuilder(
           animation: _orbitController,
@@ -258,8 +265,8 @@ class _PlanetWidgetState extends State<PlanetWidget>
             return Transform.translate(
               offset: Offset(x, y),
               child: Container(
-                width: 10 + i * 4,
-                height: 10 + i * 4,
+                width: 10 + i * 3,
+                height: 10 + i * 3,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const RadialGradient(
@@ -520,12 +527,14 @@ class _PlanetSpherePainter extends CustomPainter {
   final Offset lightDirection;
   final int noiseSeed;
   final int healthLevel;
+  final List<Color>? overridePalette;
 
   _PlanetSpherePainter({
     required this.baseColor,
     required this.lightDirection,
     required this.noiseSeed,
     required this.healthLevel,
+    this.overridePalette,
   });
 
   @override
@@ -552,14 +561,13 @@ class _PlanetSpherePainter extends CustomPainter {
       Colors.black.withOpacity(0.8),
     ];
 
-    List<Color> palette;
-    if (healthLevel >= 80) {
-      palette = healthyBlend;
-    } else if (healthLevel >= 50) {
-      palette = midBlend;
-    } else {
-      palette = unhealthyBlend;
-    }
+    List<Color> palette =
+        overridePalette ??
+        (() {
+          if (healthLevel >= 80) return healthyBlend;
+          if (healthLevel >= 50) return midBlend;
+          return unhealthyBlend;
+        })();
 
     final sphereGradient = RadialGradient(
       center: Alignment(lightDirection.dx, lightDirection.dy),

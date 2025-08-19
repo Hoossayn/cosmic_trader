@@ -2,17 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:secure_store/secure_store.dart';
+// import 'package:secure_store/secure_store.dart';
 import 'package:wallet_kit/secure_store.dart';
 import 'package:wallet_kit/wallet_kit.dart';
 import 'package:wallet_kit/wallet_state/wallet_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/planets/nebula_widget.dart';
 import '../../shared/widgets/xp_progress_bar.dart';
 import '../../shared/widgets/planet_widget.dart';
+import '../../shared/widgets/planets/barren_rock_widget.dart';
+// import '../../shared/widgets/planets/ocean_oasis_widget.dart';
 import '../../shared/providers/api_providers.dart';
-import '../../shared/models/market_models.dart';
 import '../../shared/models/nft_model.dart';
+import '../../shared/models/market_models.dart';
+// import '../../shared/models/nft_model.dart';
 import '../../shared/utils/market_utils.dart';
+// import '../../shared/models/planet_model.dart';
+import '../../shared/providers/planet_providers.dart';
 
 class PlanetScreen extends ConsumerStatefulWidget {
   const PlanetScreen({super.key});
@@ -75,10 +81,12 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
         debugPrint('Wallet initialization error: $e');
       }
     }
-    final address = ref.watch(walletsProvider.select((v) => v.selectedAccount?.address));
-    final selectedAccount = ref.watch(walletsProvider.select((value) => value.selectedAccount));
-    final walletId = selectedAccount?.walletId;
-    final accountId = selectedAccount?.id;
+    final address = ref.watch(
+      walletsProvider.select((v) => v.selectedAccount?.address),
+    );
+    // final selectedAccount = ref.watch(walletsProvider.select((value) => value.selectedAccount));
+    // final walletId = selectedAccount?.walletId;
+    // final accountId = selectedAccount?.id;
     print('Account address $address');
   }
 
@@ -117,7 +125,7 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
 
   @override
   Widget build(BuildContext context) {
-    final marketsAsync = ref.watch(marketsProvider);
+    // final marketsAsync = ref.watch(marketsProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -134,9 +142,6 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
                   children: [
                     // Header with user info and settings
                     _buildHeader(),
-
-                    // Main planet view
-                    SizedBox(height: 50),
                     _buildPlanetView(),
                     const SizedBox(height: 20),
                     Text(
@@ -169,6 +174,7 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
   }
 
   Widget _buildHeader() {
+    final activePlanet = ref.watch(activePlanetProvider);
     return Container(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -202,7 +208,7 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Level 4',
+                          'Level ${ref.watch(userLevelProvider)}',
                           style: AppTheme.bodyMedium.copyWith(
                             color: AppTheme.spaceDark,
                             fontWeight: FontWeight.w600,
@@ -248,7 +254,16 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
               ),
               const SizedBox(height: 8),
               // XP Progress
-              XPProgressBar(currentXP: 316, totalXP: 400, width: 200),
+              XPProgressBar(
+                currentXP: ref.watch(userXPProvider),
+                totalXP: 400,
+                width: 200,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Current Planet: ${activePlanet.name}',
+                style: AppTheme.bodySmall.copyWith(color: AppTheme.gray400),
+              ),
             ],
           ),
 
@@ -285,37 +300,142 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
   }
 
   Widget _buildPlanetView() {
+    final activePlanet = ref.watch(activePlanetProvider);
+    final nextPlanet = ref.watch(nextUnlockProvider);
+    final userLevel = ref.watch(userLevelProvider);
+
+    // Create a list with current planet and next planet (if exists)
+    final planets = [activePlanet];
+    if (nextPlanet != null) {
+      planets.add(nextPlanet);
+    }
+
     return Container(
       width: double.infinity,
-      height: 300,
+      height: 400,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
-          // Planet visualization
           Expanded(
-            child: Center(
-              child: AnimatedBuilder(
-                animation: _rotationController,
-                builder: (context, child) {
-                  return Transform.rotate(
-                    angle: _rotationController.value * 2 * 3.14159,
-                    child: PlanetWidget(
-                      size: 280,
-                      healthLevel: 92,
-                      ownedNFTs: NFTData.getOwnedNFTs(),
+            child: PageView.builder(
+              itemCount: planets.length,
+              onPageChanged: (index) {
+                // Update the preview when swiping
+                if (index < planets.length) {
+                  ref.read(selectedPlanetPreviewIdProvider.notifier).state =
+                      planets[index].id;
+                }
+              },
+              itemBuilder: (context, index) {
+                final planet = planets[index];
+                final isUnlocked = planet.levelRequired <= userLevel;
+                final planetNFTs = ref.watch(displayPlanetNFTsProvider);
+
+                return Column(
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            AnimatedBuilder(
+                              animation: _rotationController,
+                              builder: (context, child) {
+                                return Transform.rotate(
+                                  angle:
+                                      _rotationController.value * 2 * 3.14159,
+                                  child: _buildPlanetFor(planet.id, planetNFTs),
+                                );
+                              },
+                            ),
+                            // Lock overlay for locked planets
+                            if (!isUnlocked)
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.6),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.lock_outline,
+                                  size: 80,
+                                  color: AppTheme.gray400,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
-                  );
-                },
-              ),
+                    // Show info only for locked planets
+                    if (!isUnlocked) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        planet.name,
+                        style: AppTheme.heading2.copyWith(
+                          color: AppTheme.gray400,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.gray600.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: AppTheme.gray600.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.lock_outline,
+                              color: AppTheme.gray400,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Requires Level ${planet.levelRequired}',
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.gray400,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
           ),
-
-          // Planet info
         ],
       ),
     );
   }
 
+  Widget _buildPlanetFor(String planetId, List<NFT> planetNFTs) {
+    switch (planetId) {
+      case 'barren_rock':
+        return BarrenRockWidget(size: 250, healthLevel: 49);
+      case 'ocean_oasis':
+        return NebulaPlanetWidget(size: 250, healthLevel: 75);
+      // return OceanOasisWidget(size: 250, healthLevel: 99);
+      default:
+        // Fallback to generic sphere-based widget for now
+        return PlanetWidget(
+          size: 280,
+          healthLevel: 92,
+          ownedNFTs: planetNFTs,
+          planetTheme: ref.read(displayPlanetProvider).theme,
+        );
+    }
+  }
+
+  // ignore: unused_element
   Widget _buildMarketOverview(AsyncValue<List<Market>> marketsAsync) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -592,6 +712,9 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
+          // Quests teaser
+          _buildQuestsRow(),
+          const SizedBox(height: 16),
           // Today's progress
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -663,6 +786,46 @@ class _PlanetScreenState extends ConsumerState<PlanetScreen>
             begin: 1,
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeOutBack,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestsRow() {
+    final quests = ref.watch(activePlanetQuestsProvider);
+    if (quests.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.spaceDeep,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.cosmicBlue.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.flag_outlined, color: AppTheme.starYellow, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${quests.first.title}: ${quests.first.description}',
+              style: AppTheme.bodySmall.copyWith(color: AppTheme.gray400),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.starYellow.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.starYellow.withOpacity(0.3)),
+            ),
+            child: Text(
+              '+${quests.first.rewardXP} XP',
+              style: AppTheme.caption.copyWith(color: AppTheme.starYellow),
+            ),
           ),
         ],
       ),

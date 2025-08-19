@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/nft_model.dart';
+// import '../../shared/models/planet_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../shared/providers/planet_providers.dart';
 
-class ProfileScreen extends StatefulWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -303,10 +306,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildNFTCollection() {
-    final ownedNFTs = NFTData.getOwnedNFTs();
-    final unownedNFTs = NFTData.getUnownedNFTs()
-        .take(4)
-        .toList(); // Show first 4 unowned
+    final activePlanet = ref.watch(displayPlanetProvider);
+    final planetNFTs = ref.watch(displayPlanetNFTsProvider);
+    final ownedNFTs = planetNFTs.where((n) => n.isOwned).toList();
+    final unownedNFTs = planetNFTs.where((n) => !n.isOwned).toList();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -321,7 +324,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('NFT Collection', style: AppTheme.heading3),
+              Text(
+                'NFT Collection • ${activePlanet.name}',
+                style: AppTheme.heading3,
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -332,7 +338,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 child: Text(
-                  '${ownedNFTs.length}/${NFTData.getAllNFTs().length}',
+                  '${ownedNFTs.length}/${planetNFTs.length}',
                   style: AppTheme.bodySmall.copyWith(
                     color: AppTheme.starYellow,
                     fontWeight: FontWeight.w600,

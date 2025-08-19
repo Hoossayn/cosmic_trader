@@ -8,6 +8,7 @@ class NFT {
   final bool isOwned;
   final DateTime? earnedDate;
   final NFTEarnCondition earnCondition;
+  final String? planetId; // Optional linkage to a specific planet
 
   const NFT({
     required this.id,
@@ -19,6 +20,7 @@ class NFT {
     required this.isOwned,
     this.earnedDate,
     required this.earnCondition,
+    this.planetId,
   });
 
   NFT copyWith({
@@ -31,6 +33,7 @@ class NFT {
     bool? isOwned,
     DateTime? earnedDate,
     NFTEarnCondition? earnCondition,
+    String? planetId,
   }) {
     return NFT(
       id: id ?? this.id,
@@ -42,6 +45,7 @@ class NFT {
       isOwned: isOwned ?? this.isOwned,
       earnedDate: earnedDate ?? this.earnedDate,
       earnCondition: earnCondition ?? this.earnCondition,
+      planetId: planetId ?? this.planetId,
     );
   }
 }
@@ -86,6 +90,7 @@ class NFTData {
           description: 'Complete 10 profitable trades',
           requiredTrades: 10,
         ),
+        planetId: 'forest_frontier',
       ),
       NFT(
         id: 'golden_meteor',
@@ -100,6 +105,7 @@ class NFTData {
           description: 'Reach \$1000 total P&L',
           requiredPnL: 1000,
         ),
+        planetId: 'quantum_quasar',
       ),
       NFT(
         id: 'cosmic_rings',
@@ -113,6 +119,7 @@ class NFTData {
           description: 'Maintain 30-day trading streak',
           requiredStreak: 30,
         ),
+        planetId: 'storm_citadel',
       ),
 
       // Companion NFTs
@@ -129,6 +136,7 @@ class NFTData {
           description: 'Complete first trade',
           requiredTrades: 1,
         ),
+        planetId: 'barren_rock',
       ),
       NFT(
         id: 'cosmic_dragon',
@@ -142,6 +150,7 @@ class NFTData {
           description: 'Reach Level 10',
           requiredLevel: 10,
         ),
+        planetId: 'cosmic_crown',
       ),
 
       // Structure NFTs
@@ -157,6 +166,7 @@ class NFTData {
           description: 'Complete 100 trades',
           requiredTrades: 100,
         ),
+        planetId: 'volcanic_forge',
       ),
       NFT(
         id: 'crystal_palace',
@@ -170,6 +180,7 @@ class NFTData {
           description: 'Reach \$10,000 total P&L',
           requiredPnL: 10000,
         ),
+        planetId: 'crystal_caverns',
       ),
 
       // Effect NFTs
@@ -185,6 +196,7 @@ class NFTData {
         earnCondition: const NFTEarnCondition(
           description: 'Achieve 70% win rate',
         ),
+        planetId: 'galactic_garden',
       ),
       NFT(
         id: 'stardust_trail',
@@ -198,6 +210,7 @@ class NFTData {
           description: 'Reach 1000 XP',
           requiredXP: 1000,
         ),
+        planetId: 'nebula_nexus',
       ),
     ];
   }
